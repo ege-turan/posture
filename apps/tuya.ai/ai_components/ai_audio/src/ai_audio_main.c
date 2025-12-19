@@ -88,7 +88,7 @@ static void __ai_audio_agent_event_cb(AI_EVENT_TYPE event, AI_EVENT_ID event_id)
         }
 // stop UI streaming display
 #endif
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1) || defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
         if (sg_ai_audio.evt_inform_cb) {
             sg_ai_audio.evt_inform_cb(AI_AUDIO_EVT_AI_REPLIES_TEXT_INTERUPT, NULL, 0, NULL);
         }

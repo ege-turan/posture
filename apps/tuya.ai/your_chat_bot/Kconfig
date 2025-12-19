@@ -40,13 +40,27 @@ if(ENABLE_CHAT_MODE_ASR_WAKEUP_SINGEL || ENABLE_CHAT_MODE_ASR_WAKEUP_FREE)
     endchoice
 endif
 
-config ENABLE_CHAT_DISPLAY
-    bool "enable the display module"
-    default n
+choice
+    prompt "choose display module"
+    default ENABLE_CHAT_DISPLAY_NONE
 
-    if (ENABLE_CHAT_DISPLAY)
-        rsource "./src/display/Kconfig"
-    endif
+    config ENABLE_CHAT_DISPLAY_NONE
+        bool "No display module"
+
+    config ENABLE_CHAT_DISPLAY
+        bool "Use DISPLAY module"
+
+    config ENABLE_CHAT_DISPLAY2
+        bool "Use DISPLAY2 module"
+endchoice
+
+if (ENABLE_CHAT_DISPLAY)
+    rsource "./src/display/Kconfig"
+endif
+
+if (ENABLE_CHAT_DISPLAY2)
+    # DISPLAY2 module configuration
+endif
 
 config ENABLE_AUDIO_CHAT
     bool "enable audio chat mode"
@@ -62,5 +76,9 @@ choice
     config ENABLE_LANGUAGE_ENGLISH
         bool "English"
 endchoice
+
+config ENABLE_BATTERY
+    bool "enable the battery module"
+    default n
 
 endmenu

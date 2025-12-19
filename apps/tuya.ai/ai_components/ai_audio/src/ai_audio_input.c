@@ -386,6 +386,16 @@ static void __ai_audio_get_input_frame(TDL_AUDIO_FRAME_FORMAT_E type, TDL_AUDIO_
     tuya_ring_buff_write(sg_audio_input.ringbuff_hdl, data, len);
     tal_mutex_unlock(sg_audio_input.rb_mutex);
 
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+    extern void app_ui_helper_calculate_audio_power(uint8_t *audio_data, uint32_t data_len);
+
+    static uint32_t calculate_power_tick = 0;
+    calculate_power_tick++;
+    if (calculate_power_tick % 10 == 0) {
+        app_ui_helper_calculate_audio_power(data, len);
+    }
+#endif
+
     return;
 }
 

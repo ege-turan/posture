@@ -95,11 +95,19 @@ target_compile_options(${EXAMPLE_LIB}
 ########################################
 
 if (CONFIG_ENABLE_CHAT_DISPLAY STREQUAL "y")
-        add_subdirectory(${APP_PATH}/src/display)
+    add_subdirectory(${APP_PATH}/src/display)
+endif()
+
+if (CONFIG_ENABLE_CHAT_DISPLAY2 STREQUAL "y")
+    add_subdirectory(${APP_PATH}/src/display2)
 endif()
 
 if (CONFIG_ENABLE_EX_MODULE_CAMERA STREQUAL "y")
     add_subdirectory(${APP_PATH}/src/camera)
+endif()
+
+if (CONFIG_ENABLE_BATTERY STREQUAL "y")
+    add_subdirectory(${APP_PATH}/src/battery)
 endif()
 
 # Add mcp subdirectory

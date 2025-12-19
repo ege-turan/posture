@@ -39,7 +39,7 @@
 #include "lwip_init.h"
 #endif
 
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1) || defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
 #include "app_display.h"
 #endif
 
@@ -49,6 +49,10 @@
 #include "ai_audio.h"
 #include "reset_netcfg.h"
 #include "app_system_info.h"
+
+#if defined(ENABLE_BATTERY) && (ENABLE_BATTERY == 1)
+#include "app_battery.h"
+#endif
 
 #if defined(ENABLE_QRCODE) && (ENABLE_QRCODE == 1)
 #include "qrencode_print.h"
@@ -208,6 +212,7 @@ void user_event_handler_on(tuya_iot_client_t *client, tuya_event_msg_t *event)
     case TUYA_EVENT_TIMESTAMP_SYNC:
         PR_INFO("Sync timestamp:%d", event->value.asInteger);
         tal_time_set_posix(event->value.asInteger, 1);
+        tal_event_publish("app.time.sync", NULL);
         break;
 
     case TUYA_EVENT_RESET:
@@ -349,6 +354,12 @@ void user_main(void)
     if (ret != OPRT_OK) {
         PR_ERR("tuya_audio_recorde_init failed");
     }
+#if defined(ENABLE_BATTERY) && (ENABLE_BATTERY == 1)
+    ret = app_battery_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("app_battery_init failed");
+    }
+#endif
 
     app_system_info();
 
