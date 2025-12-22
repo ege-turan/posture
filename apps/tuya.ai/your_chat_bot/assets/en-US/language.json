@@ -25,6 +25,12 @@
 
         "VOLUME":"Volume ",
         "MUTED":"Muted",
-        "MAX_VOLUME":"Max Volume"
+        "MAX_VOLUME":"Max Volume",
+
+        "SYSTEM_MSG_POWER_ON":"Power on",
+        "SYSTEM_MSG_WIFI_SSID":"WiFi connected",
+        "SYSTEM_MSG_IP": "IP address is",
+        "SYSTEM_MSG_WIFI_DISCONNECTED":"WiFi disconnected",
+        "SYSTEM_MSG_VOLUME":"Volume set to"
     }
 }

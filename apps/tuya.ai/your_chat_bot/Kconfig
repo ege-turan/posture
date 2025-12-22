@@ -59,7 +59,7 @@ if (ENABLE_CHAT_DISPLAY)
 endif
 
 if (ENABLE_CHAT_DISPLAY2)
-    # DISPLAY2 module configuration
+    rsource "./src/display2/Kconfig"
 endif
 
 config ENABLE_AUDIO_CHAT

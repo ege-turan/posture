@@ -25,6 +25,13 @@
 
         "VOLUME":"音量 ",
         "MUTED":"已静音",
-        "MAX_VOLUME":"最大音量"
+        "MAX_VOLUME":"最大音量",
+
+        "SYSTEM_MSG_POWER_ON":"开机",
+        "SYSTEM_MSG_WIFI_SSID":"WiFi 已连接到",
+        "SYSTEM_MSG_IP": "IP 地址为",
+        "SYSTEM_MSG_WIFI_DISCONNECTED":"WiFi 断开连接",
+        "SYSTEM_MSG_VOLUME":"音量设置为"
+
     }
 }

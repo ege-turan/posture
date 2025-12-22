@@ -11,6 +11,11 @@
 #include "app_camera.h"
 #endif
 
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+#include "app_display.h"
+#include "lang_config.h"
+#endif
+
 #include "tal_api.h"
 #include "cJSON.h"
 
@@ -70,6 +75,12 @@ static OPERATE_RET __set_volume(const MCP_PROPERTY_LIST_T *properties, MCP_RETUR
     // FIXME: Implement actual volume setting logic here
     ai_audio_set_volume(volume);
     PR_DEBUG("MCP set volume to %d", volume);
+
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+    char volume_msg[36] = {0};
+    snprintf(volume_msg, sizeof(volume_msg), "%s %d (MCP)", SYSTEM_MSG_VOLUME, volume);
+    app_display_send_msg(TY_DISPLAY_TP_SYSTEM_MSG, (uint8_t *)volume_msg, strlen(volume_msg));
+#endif
 
     // Set return value
     wukong_mcp_return_value_set_bool(ret_val, TRUE);

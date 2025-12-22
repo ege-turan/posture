@@ -69,6 +69,15 @@ static __attribute__((unused)) void __app_display_msg_handle(DISPLAY_MSG_T *msg_
         // SPEAKING
         ui_set_device_status(msg_data->data);
     } break;
+    case TY_DISPLAY_TP_USER_MSG: {
+        ui_set_user_msg(msg_data->data);
+    } break;
+    case TY_DISPLAY_TP_ASSISTANT_MSG: {
+        ui_set_assistant_msg(msg_data->data);
+    } break;
+    case TY_DISPLAY_TP_SYSTEM_MSG: {
+        ui_set_system_msg(msg_data->data);
+    } break;
     default:
         break;
     }
@@ -84,6 +93,12 @@ static void __chat_bot_ui_task(void *args)
 
     tuya_lvgl_mutex_lock();
     ui_init();
+    tuya_lvgl_mutex_unlock();
+
+    tal_system_sleep(50);
+
+    tuya_lvgl_mutex_lock();
+    ui_set_system_msg(SYSTEM_MSG_POWER_ON);
     tuya_lvgl_mutex_unlock();
     for (;;) {
         memset(&msg_data, 0, sizeof(DISPLAY_MSG_T));

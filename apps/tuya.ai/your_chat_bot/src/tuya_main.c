@@ -119,6 +119,11 @@ OPERATE_RET audio_dp_obj_proc(dp_obj_recv_t *dpobj)
             snprintf(volume_str, sizeof(volume_str), "%s%d", VOLUME, volume);
             app_display_send_msg(TY_DISPLAY_TP_NOTIFICATION, (uint8_t *)volume_str, strlen(volume_str));
 #endif
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+            char volume_msg[36] = {0};
+            snprintf(volume_msg, sizeof(volume_msg), "%s %d (DP)", SYSTEM_MSG_VOLUME, volume);
+            app_display_send_msg(TY_DISPLAY_TP_SYSTEM_MSG, (uint8_t *)volume_msg, strlen(volume_msg));
+#endif
             break;
         }
         default:

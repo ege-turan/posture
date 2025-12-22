@@ -88,7 +88,8 @@ static void __ai_audio_agent_event_cb(AI_EVENT_TYPE event, AI_EVENT_ID event_id)
         }
 // stop UI streaming display
 #endif
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1) || defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1) ||                                                      \
+    defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
         if (sg_ai_audio.evt_inform_cb) {
             sg_ai_audio.evt_inform_cb(AI_AUDIO_EVT_AI_REPLIES_TEXT_INTERUPT, NULL, 0, NULL);
         }
@@ -287,8 +288,8 @@ OPERATE_RET ai_audio_init(AI_AUDIO_CONFIG_T *cfg)
         return OPRT_INVALID_PARM;
     }
 
-    sg_ai_audio.work_mode = cfg->work_mode;
-    sg_ai_audio.evt_inform_cb = cfg->evt_inform_cb;
+    sg_ai_audio.work_mode       = cfg->work_mode;
+    sg_ai_audio.evt_inform_cb   = cfg->evt_inform_cb;
     sg_ai_audio.state_inform_cb = cfg->state_inform_cb;
 #if ENABLE_AUDIO_CHAT
     AI_AUDIO_INPUT_CFG_T input_cfg;
@@ -303,7 +304,7 @@ OPERATE_RET ai_audio_init(AI_AUDIO_CONFIG_T *cfg)
 
     TUYA_CALL_ERR_RETURN(ai_audio_player_init());
 #endif
-    agent_cbs.ai_agent_msg_cb = __ai_audio_agent_msg_cb;
+    agent_cbs.ai_agent_msg_cb   = __ai_audio_agent_msg_cb;
     agent_cbs.ai_agent_event_cb = __ai_audio_agent_event_cb;
     agent_cbs.ai_agent_alert_cb = __ai_audio_agent_alert_cb;
 
@@ -343,9 +344,9 @@ uint8_t ai_audio_get_volume(void)
 {
     OPERATE_RET rt = OPRT_OK;
 
-    uint8_t volume = 0;
-    uint8_t *value = NULL;
-    size_t read_len = 0;
+    uint8_t  volume   = 0;
+    uint8_t *value    = NULL;
+    size_t   read_len = 0;
 
     // kv read
     TUYA_CALL_ERR_LOG(tal_kv_get(AI_AUDIO_SPEAK_VOLUME_KEY, &value, &read_len));

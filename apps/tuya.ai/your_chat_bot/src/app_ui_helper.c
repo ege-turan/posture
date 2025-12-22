@@ -8,6 +8,8 @@
 #include "app_ui_helper.h"
 
 #if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+#include "lang_config.h"
+
 #include "ai_audio.h"
 
 #include "tal_time_service.h"
@@ -15,7 +17,6 @@
 #include "tuya_lvgl.h"
 
 #include "screens/ui_setting.h"
-#include "tal_event.h"
 #include "ui.h"
 
 #include "tal_api.h"
@@ -57,6 +58,12 @@ static void __app_ui_set_volume_value_tm_cb(TIMER_ID timer_id, void *arg)
     // Update DP
     extern OPERATE_RET ai_audio_volume_upload(void);
     ai_audio_volume_upload();
+
+    char volume_msg[36] = {0};
+    snprintf(volume_msg, sizeof(volume_msg), "%s %d (UI)", SYSTEM_MSG_VOLUME, value);
+    tuya_lvgl_mutex_lock();
+    ui_set_system_msg(volume_msg);
+    tuya_lvgl_mutex_unlock();
 }
 
 void app_ui_set_volume_value(uint8_t value)
@@ -185,6 +192,7 @@ static int __app_ui_network_status_change_cb(void *data)
 
     tuya_lvgl_mutex_lock();
     ui_setting_wifi_update(connected);
+    ui_set_system_msg(connected ? SYSTEM_MSG_WIFI_SSID : SYSTEM_MSG_WIFI_DISCONNECTED);
     tuya_lvgl_mutex_unlock();
 
     return 0;

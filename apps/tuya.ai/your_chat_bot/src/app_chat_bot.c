@@ -37,6 +37,12 @@
 
 #include "app_mcp.h"
 
+#if (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
+#include "lang_config.h"
+#include "tuya_lvgl.h"
+#include "ui.h"
+#endif
+
 /***********************************************************
 ************************macro define************************
 ***********************************************************/
@@ -150,7 +156,7 @@ static TDL_BUTTON_HANDLE sg_button_hdl = NULL;
 ***********************************************************/
 static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, uint32_t len, void *arg)
 {
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if (defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
 #if !defined(ENABLE_GUI_STREAM_AI_TEXT) || (ENABLE_GUI_STREAM_AI_TEXT != 1)
     static uint8_t *p_ai_text = NULL;
     static uint32_t ai_text_len = 0;
@@ -161,7 +167,7 @@ static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, 
     case AI_AUDIO_EVT_HUMAN_ASR_TEXT: {
         if (len > 0 && data) {
 // send asr text to display
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if (defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
             app_display_send_msg(TY_DISPLAY_TP_USER_MSG, data, len);
 #else
             // Ubuntu console logging
@@ -170,7 +176,7 @@ static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, 
         }
     } break;
     case AI_AUDIO_EVT_AI_REPLIES_TEXT_START: {
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
 #if defined(ENABLE_GUI_STREAM_AI_TEXT) && (ENABLE_GUI_STREAM_AI_TEXT == 1)
         app_display_send_msg(TY_DISPLAY_TP_ASSISTANT_MSG_STREAM_START, data, len);
 #else
@@ -198,7 +204,7 @@ static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, 
 #endif
     } break;
     case AI_AUDIO_EVT_AI_REPLIES_TEXT_DATA: {
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if (defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
 #if defined(ENABLE_GUI_STREAM_AI_TEXT) && (ENABLE_GUI_STREAM_AI_TEXT == 1)
         app_display_send_msg(TY_DISPLAY_TP_ASSISTANT_MSG_STREAM_DATA, data, len);
 #else
@@ -215,7 +221,7 @@ static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, 
 #endif
     } break;
     case AI_AUDIO_EVT_AI_REPLIES_TEXT_END: {
-#if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
+#if (defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
 #if defined(ENABLE_GUI_STREAM_AI_TEXT) && (ENABLE_GUI_STREAM_AI_TEXT == 1)
         app_display_send_msg(TY_DISPLAY_TP_ASSISTANT_MSG_STREAM_END, data, len);
 #else
@@ -264,7 +270,7 @@ static void __app_ai_audio_evt_inform_cb(AI_AUDIO_EVENT_E event, uint8_t *data, 
         tdl_led_blink(sg_led_hdl, &blink_cfg);
 #endif
 
-#if defined(ENABLE_GUI_STREAM_AI_TEXT) && (ENABLE_GUI_STREAM_AI_TEXT == 1)
+#if defined(ENABLE_GUI_STREAM_AI_TEXT) && (ENABLE_GUI_STREAM_AI_TEXT == 1) || (defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1))
         app_display_send_msg(TY_DISPLAY_TP_ASSISTANT_MSG_STREAM_END, data, len);
 #endif
     } break;
