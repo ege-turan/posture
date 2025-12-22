@@ -297,17 +297,17 @@ void ui_setting_wifi_update(uint8_t connected)
 
 void ui_set_device_status(const char *status)
 {
-    if (status == NULL) {
+    if (status == NULL || ui_home_status_label == NULL) {
         return;
     }
 
-    // if (strcmp(status, LISTENING) == 0) {
-    //     ui_home_screen_waveform_enable(1);
-    //     ui_home_screen_waveform_start(__ui_get_audio_power);
-    // } else {
-    //     ui_home_screen_waveform_stop();
-    //     ui_home_screen_waveform_enable(0);
-    // }
+    if (strcmp(status, LISTENING) == 0) {
+        lv_label_set_text(ui_home_status_label, LISTENING);
+    } else if (strcmp(status, SPEAKING) == 0) {
+        lv_label_set_text(ui_home_status_label, SPEAKING);
+    } else {
+        lv_label_set_text(ui_home_status_label, STANDBY);
+    }
 
     return;
 }
