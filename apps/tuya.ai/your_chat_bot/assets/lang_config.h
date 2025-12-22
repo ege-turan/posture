@@ -33,7 +33,7 @@ extern "C" {
 #define MUTED "已静音"
 #define MAX_VOLUME "最大音量"
 #define SYSTEM_MSG_POWER_ON "开机"
-#define SYSTEM_MSG_WIFI_SSID "WiFi 已连接到"
+#define SYSTEM_MSG_WIFI_SSID "WiFi 已连接"
 #define SYSTEM_MSG_IP "IP 地址为"
 #define SYSTEM_MSG_WIFI_DISCONNECTED "WiFi 断开连接"
 #define SYSTEM_MSG_VOLUME "音量设置为"
