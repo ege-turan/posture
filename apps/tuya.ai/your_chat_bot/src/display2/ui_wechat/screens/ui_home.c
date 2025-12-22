@@ -23,6 +23,8 @@ lv_obj_t *ui_home_systemmsgcontainer = NULL;
 lv_obj_t *ui_home_usermsgcontainer   = NULL;
 lv_obj_t *ui_home_aimsgcontainer     = NULL;
 
+static void scroll_to_bottom_task(lv_timer_t *timer);
+
 // event funtions
 void ui_event_home(lv_event_t *e)
 {
@@ -30,6 +32,9 @@ void ui_event_home(lv_event_t *e)
 
     if (event_code == LV_EVENT_SCREEN_LOADED) {
         home_screen_loaded(e);
+
+        // ui chat container scroll to bottom
+        lv_timer_create(scroll_to_bottom_task, 100, ui_home_chat);
     }
     if (event_code == LV_EVENT_SCREEN_UNLOADED) {
         home_screen_unloaded(e);
@@ -46,7 +51,7 @@ void ui_event_home_status_bar(lv_event_t *e)
 }
 
 // Create a delayed task to scroll to the bottom in the next frame
-static __attribute__((unused)) void scroll_to_bottom_task(lv_timer_t *timer)
+static void scroll_to_bottom_task(lv_timer_t *timer)
 {
     lv_obj_t *parent = (lv_obj_t *)timer->user_data;
 
