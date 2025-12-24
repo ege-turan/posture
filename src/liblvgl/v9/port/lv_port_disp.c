@@ -84,6 +84,7 @@ static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb = NULL;
 
 static uint8_t *sg_rotate_buf = NULL;
 
+static MUTEX_HANDLE sg_disp_flush_mutex = NULL;
 /**********************
  *      MACROS
  **********************/
@@ -94,6 +95,10 @@ static uint8_t *sg_rotate_buf = NULL;
 void lv_port_disp_init(char *device)
 {
     uint8_t per_pixel_byte = 0;
+
+    if (NULL == sg_disp_flush_mutex) {
+        tal_mutex_create_init(&sg_disp_flush_mutex);
+    }
 
     /*-------------------------
      * Initialize your display
@@ -167,7 +172,9 @@ static bool sg_is_wait_dma2d = false;
 
 static void __disp_dma2d_init(void)
 {
-    tal_dma2d_init(&sg_lvgl_dma2d_hdl);
+    if (NULL == sg_lvgl_dma2d_hdl) {
+        tal_dma2d_init(&sg_lvgl_dma2d_hdl);
+    }
     return;
 }
 
@@ -724,14 +731,35 @@ volatile bool disp_flush_enabled = true;
  */
 void disp_enable_update(void)
 {
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_lock(sg_disp_flush_mutex);
+    }
+
     disp_flush_enabled = true;
+
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_unlock(sg_disp_flush_mutex);
+    }
 }
 
 /* Disable updating the screen (the flushing process) when disp_flush() is called by LVGL
  */
 void disp_disable_update(void)
 {
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_lock(sg_disp_flush_mutex);
+    }
+
     disp_flush_enabled = false;
+
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_unlock(sg_disp_flush_mutex);
+    }
+
+    // Wait for any pending DMA2D operation to complete
+    while (sg_is_wait_dma2d) {
+        tal_system_sleep(5);
+    }
 }
 
 /**
@@ -752,6 +780,10 @@ static void disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px
 {
     uint8_t *color_ptr = px_map;
     lv_area_t *target_area = (lv_area_t *)area;
+
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_lock(sg_disp_flush_mutex);
+    }
 
     if (disp_flush_enabled) {
 
@@ -801,6 +833,14 @@ static void disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px
     }
 
     lv_display_flush_ready(disp);
+
+    if (sg_is_wait_dma2d && false == disp_flush_enabled) {
+        __wait_dma2d_trans_finish();
+    }
+
+    if (NULL != sg_disp_flush_mutex) {
+        tal_mutex_unlock(sg_disp_flush_mutex);
+    }
 }
 
 #else /*Enable this file at the top*/

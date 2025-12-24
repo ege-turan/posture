@@ -13,8 +13,13 @@
 /***********************************************************
 ************************macro define************************
 ***********************************************************/
+#if defined(ENABLE_EXT_RAM) && (ENABLE_EXT_RAM == 1)
+#define TAL_DMA2D_MALLOC tal_psram_malloc
+#define TAL_DMA2D_FREE   tal_psram_free
+#else
 #define TAL_DMA2D_MALLOC tal_malloc
 #define TAL_DMA2D_FREE   tal_free
+#endif
 
 /***********************************************************
 ***********************typedef define***********************
@@ -138,7 +143,10 @@ OPERATE_RET tal_dma2d_convert(TAL_DMA2D_HANDLE_T handle, TKL_DMA2D_FRAME_INFO_T 
     tal_mutex_lock(sg_dma2d.mutex);
 
     sg_dma2d.finish_sem = context->finish_sem;
-    TUYA_CALL_ERR_GOTO(tkl_dma2d_convert(src, dst), __ERR);
+    rt = tkl_dma2d_convert(src, dst);
+    if (OPRT_OK != rt) {
+        goto __ERR;
+    }
     context->need_wait_finish = true;
 
     return rt;
@@ -162,7 +170,10 @@ OPERATE_RET tal_dma2d_memcpy(TAL_DMA2D_HANDLE_T handle, TKL_DMA2D_FRAME_INFO_T *
     tal_mutex_lock(sg_dma2d.mutex);
 
     sg_dma2d.finish_sem = context->finish_sem;
-    TUYA_CALL_ERR_GOTO(tkl_dma2d_memcpy(src, dst), __ERR);
+    rt = tkl_dma2d_memcpy(src, dst);
+    if (OPRT_OK != rt) {
+        goto __ERR;
+    }
     context->need_wait_finish = true;
 
     return rt;
