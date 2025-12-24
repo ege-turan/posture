@@ -31,6 +31,9 @@ void ui_home_screen_waveform_stop(void);
 // app display functions
 void ui_set_emotion(const char *emotion);
 void ui_set_device_status(const char *status);
+void ui_set_user_msg(const char *msg);
+void ui_set_assistant_msg(const char *msg);
+void ui_set_system_msg(const char *msg);
 
 #ifdef __cplusplus
 } /*extern "C"*/

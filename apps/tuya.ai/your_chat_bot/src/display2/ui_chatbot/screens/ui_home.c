@@ -289,3 +289,18 @@ void ui_set_device_status(const char *status)
 
     return;
 }
+
+void ui_set_user_msg(const char *msg)
+{
+    return;
+}
+
+void ui_set_assistant_msg(const char *msg)
+{
+    return;
+}
+
+void ui_set_system_msg(const char *msg)
+{
+    return;
+}
