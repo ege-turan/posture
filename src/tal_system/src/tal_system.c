@@ -169,8 +169,7 @@ void *tal_psram_malloc(size_t size)
     ptr = tkl_system_psram_malloc(size);
 
     if (NULL == ptr) {
-        PR_ERR("0x%x psram malloc failed:0x%x free:0x%x", __builtin_return_address(0), size,
-               tal_system_get_free_heap_size());
+        PR_ERR("0x%x psram malloc failed:0x%x free:0x%x", __builtin_return_address(0), size, tal_system_get_free_heap_size());
     }
 
     return ptr;
