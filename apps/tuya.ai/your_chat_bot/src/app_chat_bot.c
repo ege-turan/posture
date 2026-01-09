@@ -752,6 +752,7 @@ OPERATE_RET ai_audio_player_play_alert(AI_AUDIO_ALERT_TYPE_E type)
 {
     OPERATE_RET rt = OPRT_OK;
 
+#if defined(ENABLE_CLOUD_ALERT) && (ENABLE_CLOUD_ALERT == 1)
     if (AI_AUDIO_ALERT_NETWORK_CONNECTED == type) {
         rt = ai_audio_agent_cloud_alert(AT_NETWORK_CONNECTED);
     } else if (AI_AUDIO_ALERT_PLEASE_AGAIN == type) {
@@ -761,6 +762,9 @@ OPERATE_RET ai_audio_player_play_alert(AI_AUDIO_ALERT_TYPE_E type)
     } else {
         rt = ai_audio_player_play_local_alert(type);
     }
+#else
+    rt = ai_audio_player_play_local_alert(type);
+#endif
 
     return rt;
 }

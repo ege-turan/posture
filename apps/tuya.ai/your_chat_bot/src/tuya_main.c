@@ -414,6 +414,9 @@ static void tuya_app_thread(void *arg)
 
 void tuya_app_main(void)
 {
+    extern VOID_T tkl_system_psram_malloc_force_set(BOOL_T enable);
+    tkl_system_psram_malloc_force_set(TRUE);
+
     THREAD_CFG_T thrd_param = {0};
     thrd_param.stackDepth = 4096;
     thrd_param.priority = 4;

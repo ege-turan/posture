@@ -449,6 +449,7 @@ OPERATE_RET ai_audio_agent_chat_intrrupt(void)
  * @param type Alert type
  * @return OPERATE_RET - OPRT_OK on success, or an error code on failure.
  */
+__attribute__((unused))
 OPERATE_RET ai_audio_agent_cloud_alert(int type)
 {
     OPERATE_RET rt = OPRT_OK;
