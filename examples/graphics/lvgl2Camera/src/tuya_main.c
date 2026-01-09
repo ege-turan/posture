@@ -91,7 +91,10 @@ void user_main(void)
     PR_NOTICE("Platform board:      %s", PLATFORM_BOARD);
     PR_NOTICE("Platform commit-id:  %s", PLATFORM_COMMIT);
 
-    THREAD_CFG_T thrd_param = {1024 * 4, THREAD_PRIO_2, "lvgl2Camera task"};
+    THREAD_CFG_T thrd_param = {0};
+    thrd_param.stackDepth = 1024 * 4;
+    thrd_param.priority = THREAD_PRIO_2;
+    thrd_param.thrdname = "lvgl2Camera task";
     tal_thread_create_and_start(&lvgl2Camera_hdl, NULL, NULL, app_lvgl2Camera_thread, NULL, &thrd_param);
     return;
 }
@@ -130,7 +133,10 @@ static void tuya_app_thread(void *arg)
 
 void tuya_app_main(void)
 {
-    THREAD_CFG_T thrd_param = {4096, 4, "tuya_app_main"};
+    THREAD_CFG_T thrd_param = {0};
+    thrd_param.stackDepth = 1024 * 4;
+    thrd_param.priority = THREAD_PRIO_1;
+    thrd_param.thrdname = "tuya_app_main";
     tal_thread_create_and_start(&ty_app_thread, NULL, NULL, tuya_app_thread, NULL, &thrd_param);
 }
 #endif
