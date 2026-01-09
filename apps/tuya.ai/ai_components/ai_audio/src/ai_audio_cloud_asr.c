@@ -260,10 +260,16 @@ OPERATE_RET ai_audio_cloud_asr_init(void)
                        __ERR);
 
     TUYA_CALL_ERR_GOTO(tal_mutex_create_init(&sg_ai_cloud_asr.mutex), __ERR);
+
+#if defined(ENABLE_APP_OPUS_ENCODER) && (ENABLE_APP_OPUS_ENCODER == 1)
+    TUYA_CALL_ERR_GOTO(tkl_thread_create_in_psram(&sg_ai_cloud_asr.thrd_hdl, "audio_cloud_asr", 1024 * 26, THREAD_PRIO_1,
+        __ai_audio_cloud_asr_task, NULL),
+__ERR);
+#else
     TUYA_CALL_ERR_GOTO(tkl_thread_create_in_psram(&sg_ai_cloud_asr.thrd_hdl, "audio_cloud_asr", 1024 * 4, THREAD_PRIO_1,
                                                   __ai_audio_cloud_asr_task, NULL),
                        __ERR);
-
+#endif
     PR_DEBUG("%s success", __func__);
 
     return OPRT_OK;

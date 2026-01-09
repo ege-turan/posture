@@ -77,6 +77,10 @@ choice
         bool "English"
 endchoice
 
+config ENABLE_APP_OPUS_ENCODER
+    bool "enable opus encoder"
+    default n
+
 config ENABLE_BATTERY
     bool "enable the battery module"
     default n

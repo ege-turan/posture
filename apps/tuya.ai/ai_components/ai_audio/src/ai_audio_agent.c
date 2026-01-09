@@ -344,7 +344,11 @@ static OPERATE_RET __ai_agent_init(void *data)
 
     // Configure audio codec settings
     agent_cfg.codec_enable = TRUE;
+#if ENABLE_APP_OPUS_ENCODER
+    agent_cfg.attr.audio.codec_type = AUDIO_CODEC_OPUS;
+#else
     agent_cfg.attr.audio.codec_type = AUDIO_CODEC_PCM;
+#endif
     agent_cfg.attr.audio.sample_rate = 16000;
     agent_cfg.attr.audio.channels = AUDIO_CHANNELS_MONO;
     agent_cfg.attr.audio.bit_depth = 16;
