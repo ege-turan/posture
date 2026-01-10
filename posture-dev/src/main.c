@@ -59,13 +59,21 @@ static void ble_event_callback(TAL_BLE_EVT_PARAMS_T *p_event)
             if (p_event->ble_event.init == 0) {
                 // Set up advertising data for iPhone to discover us
                 uint8_t adv_data[] = {
-                    0x02, 0x01, 0x06,  // Flags: LE General Discoverable
-                    0x05, 0x12, 0x18, 0x0F, 0x18, 0x0A,  // Complete list of 16-bit service UUIDs
-                    // Add more advertising data as needed
+                    // AD Structure 1: Flags
+                    0x02, // Length of this section
+                    0x01, // Type: Flags
+                    0x06, // Data: LE General Discoverable Mode, BR/EDR Not Supported
+                
+                    // AD Structure 2: Complete List of 128-bit Service UUIDs
+                    0x11, // Length of this section (16-byte UUID + 1-byte type)
+                    0x07, // Type: Complete list of 128-bit Service UUIDs
+                    // The ANCS Service UUID in little-endian format
+                    0xD0, 0x00, 0x2D, 0x12, 0x1E, 0x4B, 0x0F, 0xA4,
+                    0x99, 0x4E, 0xCE, 0xB5, 0x31, 0xF4, 0x05, 0x79
                 };
                 
                 uint8_t scan_rsp_data[] = {
-                    0x0C, 0x09, 'A', 'N', 'C', 'S', ' ', 'D', 'e', 'v', 'i', 'c', 'e',  // Complete local name
+                    0x0C, 0x09, 'A', 'N', 'C', 'S', ' ', 'D', 'e', 'v', 'i', 'c', 'e'  // Complete local name
                 };
                 
                 TAL_BLE_DATA_T adv;
