@@ -1,0 +1,6 @@
+click
+pyserial
+PyYAML
+requests
+rich
+tqdm
