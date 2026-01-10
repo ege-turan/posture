@@ -48,7 +48,17 @@ set(APP_INC
     ${APP_PATH}/include
     ${APP_PATH}/models
     ${TFLM_INC}
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/include
 )
+
+# --- DISPLAY (TDL) ADDITIONS START ---
+set(TDL_DISPLAY_SRC
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_format.c
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_manage.c
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_draw.c
+)
+# --- DISPLAY (TDL) ADDITIONS END ---
+
 
 ########################################
 # Target Configure
@@ -60,6 +70,7 @@ target_sources(${EXAMPLE_LIB}
     PRIVATE
         ${APP_SRC}
         ${TFLM_SRC}    # Added TFLM source files
+        ${TDL_DISPLAY_SRC}   # Added TDL display sources
     )
 
 target_include_directories(${EXAMPLE_LIB}
