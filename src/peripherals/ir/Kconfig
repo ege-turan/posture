@@ -1,3 +1,0 @@
-config ENABLE_IR
-    bool "enable IR"
-    default n

@@ -1,5 +1,0 @@
-config ENABLE_QRCODE
-	bool
-	default n
-    help
-      Enable QRCode
