@@ -29,11 +29,11 @@
 #endif
 
 #ifndef EXAMPLE_CAMERA_WIDTH
-#define EXAMPLE_CAMERA_WIDTH 640
+#define EXAMPLE_CAMERA_WIDTH 480  // Default for T5AI boards
 #endif
 
 #ifndef EXAMPLE_CAMERA_HEIGHT
-#define EXAMPLE_CAMERA_HEIGHT 480
+#define EXAMPLE_CAMERA_HEIGHT 480  // Default for T5AI boards
 #endif
 
 #ifndef EXAMPLE_CAMERA_FPS

@@ -11,7 +11,7 @@ posture-dev/
 ├── src/
 │   ├── main.cpp          # Simplified high-level interface
 │   ├── camera.c          # Camera capture and display module
-│   └── inference.c       # MoveNet inference engine
+│   └── inference.cpp     # MoveNet inference engine (C++)
 ├── include/
 │   ├── camera.h          # Camera module API
 │   └── inference.h       # Inference module API
@@ -51,7 +51,7 @@ camera_start(on_camera_frame, nullptr);
   - `camera_stop()` - Stop capture
   - `camera_deinit()` - Cleanup resources
 
-### 3. **Inference Module** (`inference.c` / `inference.h`)
+### 3. **Inference Module** (`inference.cpp` / `inference.h`)
 - **Purpose**: MoveNet model inference and preprocessing
 - **Responsibilities**:
   - Load and initialize MoveNet model
@@ -72,7 +72,7 @@ Camera Hardware
     ↓ (YUV422 frames)
 Camera Callback (camera.c)
     ↓ (route to inference)
-Inference Module (inference.c)
+Inference Module (inference.cpp)
     ├─ YUV422 → RGB888 conversion
     ├─ Resize to 192x192
     ├─ Normalize to [-1, 1]

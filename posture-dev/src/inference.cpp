@@ -1,5 +1,5 @@
 /**
- * @file inference.c
+ * @file inference.cpp
  * @brief MoveNet inference implementation
  * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  */
