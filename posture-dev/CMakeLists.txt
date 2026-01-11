@@ -16,15 +16,29 @@ get_filename_component(APP_NAME ${APP_PATH} NAME)
 # Define the internal vendor path
 set(TFLM_ROOT "${APP_PATH}/vendor/tflm")
 
-set(TFLM_KERNEL_SRC
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/add.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/conv.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/depthwise_conv.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/logistic.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/mul.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/pooling.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/reshape.cc"
-    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/softmax.cc"
+# Collect all TFLM source files recursively
+# Note: The actual path is tensorflow/tensorflow/lite/micro (extra tensorflow level)
+file(GLOB_RECURSE TFLM_SRC 
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/memory_planner/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/arena_allocator/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/tflite_bridge/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/core/api/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/core/c/*.cc"
+    # Add kernel utility files (these are required by kernels but not in micro/kernels/)
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/kernel_util.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/internal/common.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/internal/quantization_util.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/internal/tensor_ctypes.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/internal/portable_tensor_utils.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/kernel_util.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/micro_utils.cc"
+    # Schema utilities (needed for GetBuiltinCode)
+    "${TFLM_ROOT}/tensorflow/tensorflow/compiler/mlir/lite/schema/schema_utils.cc"
+    # Reference implementations (used by kernel implementations, especially for INT8 ops)
+    # Note: integer_ops contains only headers, but portable_tensor_utils.cc is in internal/
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/internal/reference/*.cc"
 )
 
 # Filter out test files to save 8MB Flash space (currently overflowed by 64KB)
@@ -95,4 +109,4 @@ target_compile_options(${EXAMPLE_LIB}
         $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>        # Disable RTTI for embedded
         $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>  # Disable exceptions for embedded
         $<$<COMPILE_LANGUAGE:CXX>:-fno-use-cxa-atexit> # Removes need for __dso_handle and saves Flash
-        )
+    )
