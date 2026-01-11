@@ -14,6 +14,10 @@
 
 #include <cstdint>
 
+#include <cstdio>
+#include <cstring>
+
+
 
 extern "C" {
 #include "example_display.h"
@@ -25,6 +29,10 @@ extern "C" {
 
 extern "C" {
 #include "ai_classifier.h"
+}
+
+extern "C" {
+#include "ble_central_port.h"
 }
 
 
@@ -41,6 +49,23 @@ void user_main()
     tal_log_init(TAL_LOG_LEVEL_DEBUG, 1024, 
                  reinterpret_cast<TAL_LOG_OUTPUT_CB>(tkl_log_output));
     PR_DEBUG("hello world\r\n");
+
+    static tal_kv_cfg_t kv_cfg{};
+    memset(&kv_cfg, 0, sizeof(kv_cfg));
+
+    // Copy into fixed-size arrays safely
+    snprintf(kv_cfg.seed, sizeof(kv_cfg.seed), "%s", "vmlkasdh93dlvlcy");
+    snprintf(kv_cfg.key,  sizeof(kv_cfg.key),  "%s", "dflfuap134ddlduq");
+
+    tal_kv_init(&kv_cfg);
+
+
+    tal_sw_timer_init();
+    // tal_workq_init(); // erm
+
+    PR_NOTICE("boot: starting BLE central");
+    ble_central_start();
+
 
     tal_system_sleep(2000);
     PR_ERR("boot: starting display init");

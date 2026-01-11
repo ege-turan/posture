@@ -42,6 +42,7 @@ set(TFLM_INC
 # APP_SRC
 aux_source_directory(${APP_PATH}/src APP_SRC)
 
+
 # APP_INC
 # We merge the original include with the new TFLM includes
 set(APP_INC 
@@ -61,6 +62,13 @@ set(TDL_DISPLAY_SRC
 )
 # --- DISPLAY (TDL) ADDITIONS END ---
 
+# --- TAL WORKQ (FORCE LINK) ADDITIONS START --- !!!!!!!
+set(TAL_WORKQ_SRC
+    ${CMAKE_SOURCE_DIR}/src/tal_system/src/tal_workq_service.c
+    ${CMAKE_SOURCE_DIR}/src/tal_system/src/tal_workqueue.c
+)
+# --- TAL WORKQ (FORCE LINK) ADDITIONS END ---
+
 
 ########################################
 # Target Configure
@@ -71,6 +79,7 @@ message(STATUS "EXAMPLE_LIB:${APP_PATH}")
 target_sources(${EXAMPLE_LIB}
     PRIVATE
         ${APP_SRC}
+        ${TAL_WORKQ_SRC} # !!!!!!!!!!
         ${TFLM_SRC}    # Added TFLM source files
         ${TDL_DISPLAY_SRC}   # Added TDL display sources
         ${APP_PATH}/ai/inference/ai_classifier.c # THIS IS FOR AI MODEL IF WANT IT !!!!
