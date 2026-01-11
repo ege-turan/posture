@@ -108,6 +108,9 @@ set(CMSIS_DSP_INC
 # APP_SRC
 aux_source_directory(${APP_PATH}/src APP_SRC)
 
+list(REMOVE_ITEM APP_SRC ${APP_PATH}/src/ancs_client.c) # !!! removing for peripheral build
+
+
 # APP_INC
 # We merge the original include with the new TFLM includes
 set(APP_INC 
@@ -117,7 +120,28 @@ set(APP_INC
     ${CMSIS_NN_INC}  # CMSIS-NN headers
     ${CMSIS_5_INC}   # CMSIS-5 Core headers (required by CMSIS-NN)
     ${CMSIS_DSP_INC} # CMSIS-DSP headers (may be used by some operations)
+
+    ${APP_PATH}/ai/inference # FOR AI MODEL IF WANT IT 
+    ${APP_PATH}/ai/generated # FOR AI MODEL IF WANT IT 
+    ${TFLM_INC}
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/include
 )
+
+# --- DISPLAY (TDL) ADDITIONS START ---
+set(TDL_DISPLAY_SRC
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_format.c
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_manage.c
+    ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/src/tdl_display_draw.c
+)
+# --- DISPLAY (TDL) ADDITIONS END ---
+
+# --- TAL WORKQ (FORCE LINK) ADDITIONS START --- !!!!!!!
+set(TAL_WORKQ_SRC
+    ${CMAKE_SOURCE_DIR}/src/tal_system/src/tal_workq_service.c
+    ${CMAKE_SOURCE_DIR}/src/tal_system/src/tal_workqueue.c
+)
+# --- TAL WORKQ (FORCE LINK) ADDITIONS END ---
+
 
 ########################################
 # Target Configure
@@ -155,6 +179,9 @@ target_sources(${EXAMPLE_LIB}
         ${APP_SRC}
         ${TFLM_SRC}    # Added TFLM source files
         ${CMSIS_NN_SRC}  # Added CMSIS-NN library source files
+        ${TAL_WORKQ_SRC} # !!!!!!!!!!
+        ${TDL_DISPLAY_SRC}   # Added TDL display sources
+        ${APP_PATH}/ai/inference/ai_classifier.c # THIS IS FOR AI MODEL IF WANT IT !!!!
     )
 
 target_include_directories(${EXAMPLE_LIB}
@@ -170,6 +197,7 @@ set_target_properties(${EXAMPLE_LIB} PROPERTIES
 )
 
 # Common optimization flags for all sources (C and C++)
+
 # Note: FPU flags enable hardware floating point acceleration on Cortex-M33F
 # TARGET_ARCH=cortex-m33 equivalent: -mcpu=cortex-m33
 target_compile_options(${EXAMPLE_LIB}

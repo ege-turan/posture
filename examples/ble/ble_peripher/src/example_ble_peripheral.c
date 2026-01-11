@@ -227,6 +227,14 @@ static void tuya_app_thread(void *arg)
 
     tal_thread_delete(ty_app_thread);
     ty_app_thread = NULL;
+
+    /*
+    // Keep application thread alive for logs / timers / future UI integration.
+    while (1) {
+        PR_NOTICE("BLE peripheral alive (adv=%s)", "unknown"); // simple heartbeat
+        tal_system_sleep(1000);
+    }
+        */
 }
 
 void tuya_app_main(void)

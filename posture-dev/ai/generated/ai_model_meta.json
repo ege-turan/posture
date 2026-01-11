@@ -1,0 +1,14 @@
+{
+  "labels": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "vocab_size": 1232,
+  "dim": 32,
+  "max_tokens": 40,
+  "emb_scale": 0.035483136773109436,
+  "fc_scale": 0.009958000853657722,
+  "acc_scale": 0.0003533411062770775,
+  "token_hash": "fnv1a_32"
+}
