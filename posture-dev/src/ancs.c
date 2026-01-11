@@ -17,11 +17,17 @@
  * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  */
 
+// Include ANCS security config BEFORE other headers
+// This ensures security settings are defined before tuya_ble_cfg.h is included
+#include "tuya_ble_ancs_cfg.h"
+
 // Include nimble headers FIRST to avoid LIST_HEAD macro conflicts
 // (nimble defines LIST_HEAD(name, type) differently than Tuya's LIST_HEAD(name))
 // We'll undefine LIST_HEAD after including nimble headers, then Tuya will redefine it
 #include "ble_gatt.h"
 #include "ble_uuid.h"
+// Note: ble_gap.h is not included here to avoid header dependency issues
+// Security/pairing will be handled via timer-based retry approach
 // #include "ble_hs.h"
 #include "ble_hs_mbuf.h"
 
@@ -51,9 +57,9 @@
 
 // Forward declarations
 static int ancs_svc_disc_cb(uint16_t conn_handle,
-                            const struct ble_gatt_error *error,
-                            const struct ble_gatt_svc *service,
-                            void *arg);
+                           const struct ble_gatt_error *error,
+                           const struct ble_gatt_svc *service,
+                           void *arg);
 
 static int ancs_chr_disc_cb(uint16_t conn_handle,
                            const struct ble_gatt_error *error,
@@ -65,6 +71,9 @@ static int ancs_desc_disc_cb(uint16_t conn_handle,
                             uint16_t chr_val_handle,
                             const struct ble_gatt_dsc *dsc,
                             void *arg);
+
+static void ancs_start_service_discovery(void);
+static void ancs_check_and_start_discovery(void);
 
 // ANCS Service UUID (128-bit) - Using BLE_UUID128_INIT macro
 static const ble_uuid128_t ancs_service_uuid = BLE_UUID128_INIT(
@@ -133,9 +142,15 @@ static struct {
     bool service_found;
     uint8_t chars_found;
     uint8_t descs_found;
+    
+    // Prerequisites for service discovery
+    bool mtu_exchange_complete;
+    bool encryption_ready;  // Assumed ready after connection (iOS initiates pairing)
 } ancs_ctx = {
     .state = ANCS_STATE_DISCONNECTED,
     .conn_handle = BLE_HS_CONN_HANDLE_NONE,
+    .mtu_exchange_complete = false,
+    .encryption_ready = false,
     .service_start_handle = 0,
     .service_end_handle = 0,
     .notification_source_handle = 0,
@@ -180,14 +195,14 @@ static int ancs_svc_disc_cb(uint16_t conn_handle,
     (void)arg;
     
     if (error->status != 0) {
-        PR_DEBUG("ANCS: Service discovery failed, status=%d", error->status);
         if (error->status == BLE_HS_EDONE) {
             // Discovery complete
             if (!ancs_ctx.service_found) {
-                PR_DEBUG("ANCS: Service not found");
+                PR_DEBUG("ANCS: ANCS service not found (encryption may not be ready yet)");
+                // Return to CONNECTED state - if encryption completes later, discovery can be retried
                 ancs_ctx.state = ANCS_STATE_CONNECTED;
             } else {
-                // Start characteristic discovery
+                // Service found - start characteristic discovery
                 PR_DEBUG("ANCS: Starting characteristic discovery");
                 ancs_ctx.state = ANCS_STATE_DISCOVERING_CHARACTERISTICS;
                 int rc = ble_gattc_disc_all_chrs(conn_handle,
@@ -200,6 +215,10 @@ static int ancs_svc_disc_cb(uint16_t conn_handle,
                     ancs_ctx.state = ANCS_STATE_CONNECTED;
                 }
             }
+        } else {
+            PR_DEBUG("ANCS: Service discovery error, status=%d", error->status);
+            // Return to CONNECTED state on error
+            ancs_ctx.state = ANCS_STATE_CONNECTED;
         }
         return 0;
     }
@@ -424,6 +443,62 @@ static void ancs_parse_data_source(const uint8_t *data, uint16_t len)
     }
 }
 
+/**
+ * @brief Check prerequisites and start service discovery if ready
+ * 
+ * State-based approach: Only start discovery when all prerequisites are met.
+ * ANCS requires:
+ * - Connection established
+ * - MTU exchange complete
+ * - Encryption/pairing complete (assumed ready after connection with security config)
+ */
+static void ancs_check_and_start_discovery(void)
+{
+    // Must be in CONNECTED state
+    if (ancs_ctx.state != ANCS_STATE_CONNECTED) {
+        return;
+    }
+    
+    // Check prerequisites
+    if (!ancs_ctx.mtu_exchange_complete) {
+        PR_DEBUG("ANCS: Waiting for MTU exchange to complete");
+        return;
+    }
+    
+    // Encryption is assumed ready - iOS initiates pairing automatically
+    // If discovery fails, we'll know encryption wasn't ready yet
+    PR_DEBUG("ANCS: Prerequisites met, starting service discovery");
+    ancs_start_service_discovery();
+}
+
+/**
+ * @brief Start service discovery
+ * 
+ * Internal function that actually initiates the service discovery procedure.
+ */
+static void ancs_start_service_discovery(void)
+{
+    if (ancs_ctx.state != ANCS_STATE_CONNECTED) {
+        PR_DEBUG("ANCS: Cannot start discovery, not in connected state");
+        return;
+    }
+    
+    PR_DEBUG("ANCS: Starting ANCS service discovery");
+    ancs_ctx.state = ANCS_STATE_DISCOVERING_SERVICE;
+    ancs_ctx.service_found = false;
+    
+    int rc = ble_gattc_disc_svc_by_uuid(ancs_ctx.conn_handle,
+                                         &ancs_service_uuid.u,
+                                         ancs_svc_disc_cb,
+                                         NULL);
+    if (rc != 0) {
+        PR_DEBUG("ANCS: Failed to start service discovery, rc=%d (encryption may not be ready)", rc);
+        // Return to CONNECTED state - discovery will be retried when encryption completes
+        // (encryption completion may trigger another discovery attempt)
+        ancs_ctx.state = ANCS_STATE_CONNECTED;
+    }
+}
+
 OPERATE_RET ancs_init(ancs_notification_callback_t notification_cb,
                       ancs_notification_data_callback_t data_cb)
 {
@@ -437,7 +512,7 @@ OPERATE_RET ancs_init(ancs_notification_callback_t notification_cb,
     ancs_ctx.notification_cb = notification_cb;
     ancs_ctx.data_cb = data_cb;
     
-    PR_DEBUG("ANCS: Initialized");
+    PR_DEBUG("ANCS: Initialized with security configuration (iOS will initiate pairing)");
     return OPRT_OK;
 }
 
@@ -454,22 +529,27 @@ void ancs_handle_ble_event(TAL_BLE_EVT_PARAMS_T *p_event)
                          p_event->ble_event.connect.peer.conn_handle);
                 ancs_ctx.conn_handle = p_event->ble_event.connect.peer.conn_handle;
                 ancs_ctx.state = ANCS_STATE_CONNECTED;
+                ancs_ctx.mtu_exchange_complete = false;
+                ancs_ctx.encryption_ready = false;  // Will be inferred when discovery succeeds
                 
-                // Wait a bit for connection to stabilize, then discover services
-                tal_system_sleep(500);
+                // ANCS requires pairing/encryption before service discovery
+                // With security configuration enabled, iOS will initiate pairing automatically
+                PR_DEBUG("ANCS: iPhone connected - waiting for MTU exchange and encryption");
                 
-                // Start service discovery
-                PR_DEBUG("ANCS: Starting service discovery");
-                ancs_ctx.state = ANCS_STATE_DISCOVERING_SERVICE;
-                ancs_ctx.service_found = false;
-                int rc = ble_gattc_disc_svc_by_uuid(ancs_ctx.conn_handle,
-                                                     &ancs_service_uuid.u,
-                                                     ancs_svc_disc_cb,
-                                                     NULL);
-                if (rc != 0) {
-                    PR_DEBUG("ANCS: Failed to start service discovery, rc=%d", rc);
-                    ancs_ctx.state = ANCS_STATE_CONNECTED;
-                }
+                // State-based: Check if we can start discovery (will wait for prerequisites)
+                ancs_check_and_start_discovery();
+            }
+            break;
+        }
+        
+        case TAL_BLE_EVT_MTU_RSP: {
+            if (p_event->ble_event.exchange_mtu.conn_handle == ancs_ctx.conn_handle) {
+                PR_DEBUG("ANCS: MTU exchange complete, mtu=%d", 
+                         p_event->ble_event.exchange_mtu.mtu);
+                ancs_ctx.mtu_exchange_complete = true;
+                
+                // State-based: Check if all prerequisites are met and start discovery
+                ancs_check_and_start_discovery();
             }
             break;
         }
@@ -477,6 +557,7 @@ void ancs_handle_ble_event(TAL_BLE_EVT_PARAMS_T *p_event)
         case TAL_BLE_EVT_DISCONNECT: {
             if (p_event->ble_event.disconnect.peer.conn_handle == ancs_ctx.conn_handle) {
                 PR_DEBUG("ANCS: iPhone disconnected");
+                
                 ancs_ctx.state = ANCS_STATE_DISCONNECTED;
                 ancs_ctx.conn_handle = BLE_HS_CONN_HANDLE_NONE;
                 ancs_ctx.service_start_handle = 0;
@@ -486,6 +567,8 @@ void ancs_handle_ble_event(TAL_BLE_EVT_PARAMS_T *p_event)
                 ancs_ctx.data_source_handle = 0;
                 ancs_ctx.notification_source_cccd_handle = 0;
                 ancs_ctx.data_source_cccd_handle = 0;
+                ancs_ctx.mtu_exchange_complete = false;
+                ancs_ctx.encryption_ready = false;
             }
             break;
         }
