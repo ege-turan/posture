@@ -113,6 +113,9 @@ TfLiteStatus FloorDivEval(TfLiteContext* context, TfLiteNode* node) {
     case kTfLiteFloat32: {
       return EvalFloorDiv<float>(context, input1, input2, output);
     }
+    case kTfLiteInt32: {
+      return EvalFloorDiv<int32_t>(context, input1, input2, output);
+    }
     default: {
       MicroPrintf("Type '%s' is not supported by FLOOR_DIV.",
                   TfLiteTypeGetName(input1->type));

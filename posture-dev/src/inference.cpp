@@ -19,6 +19,8 @@
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
+#include "tensorflow/lite/micro/kernels/conv.h"  // For Register_CONV_2D_INT8
+#include "tensorflow/lite/micro/kernels/depthwise_conv.h"  // For Register_DEPTHWISE_CONV_2D_INT8
 
 #include "model_data.h"  // Include your MoveNet model data
 
@@ -277,9 +279,16 @@ OPERATE_RET inference_init(const inference_config_t* config)
     resolver.AddArgMax();
     resolver.AddCast();
     resolver.AddConcatenation();
+    #if defined(CMSIS_NN)
+    // Use CMSIS-NN optimized kernels for INT8 quantized operations (10-50x speedup)
+    resolver.AddConv2D(tflite::Register_CONV_2D_INT8());
+    resolver.AddDepthwiseConv2D(tflite::Register_DEPTHWISE_CONV_2D_INT8());
+    #else
+    // Fallback to reference kernels
     resolver.AddConv2D();
-    // resolver.AddDelegate();
     resolver.AddDepthwiseConv2D();
+    #endif
+    // resolver.AddDelegate();
     resolver.AddDequantize();
     resolver.AddDiv();
     resolver.AddFloorDiv();
@@ -337,6 +346,17 @@ OPERATE_RET inference_init(const inference_config_t* config)
         tkl_system_psram_free(sg_tensor_arena);
         sg_tensor_arena = NULL;
         return OPRT_COM_ERROR;
+    }
+
+    // Check arena usage after allocation (critical for performance)
+    size_t arena_used_after_alloc = sg_interpreter->arena_used_bytes();
+    PR_NOTICE("Arena usage after AllocateTensors: %zu / %zu bytes (%.1f%%)",
+              arena_used_after_alloc, effective_arena_size,
+              (100.0f * arena_used_after_alloc) / effective_arena_size);
+    
+    if (arena_used_after_alloc > (effective_arena_size * 0.90f)) {
+        PR_ERR("CRITICAL: Arena usage >90%% - memory may be insufficient!");
+        PR_ERR("This can cause extremely slow inference or failures");
     }
 
     // Get input and output tensors
@@ -406,20 +426,18 @@ OPERATE_RET inference_process_frame(uint8_t* yuv422_data, int input_width, int i
         return OPRT_INVALID_PARM;
     }
 
-    // Direct conversion: YUV422 -> preprocessed 192x192 RGB (eliminates intermediate buffer)
-    // This saves ~900KB of PSRAM per frame (640*480*3 = 921,600 bytes)
-    // MoveNet expects uint8 tensor, so we write directly to the tensor's uint8 buffer
+    // Preprocessing (YUV422 -> 192x192 RGB)
     uint8_t* preprocessed = sg_input_tensor->data.uint8;
     yuv422_to_movenet_preprocessed(yuv422_data, input_width, input_height, preprocessed);
 
-    // Step 3: Run inference
+    // Run inference
     TfLiteStatus invoke_status = sg_interpreter->Invoke();
     if (invoke_status != kTfLiteOk) {
-        PR_ERR("Model inference failed");
+        PR_ERR("Model inference failed with status: %d", invoke_status);
         return OPRT_COM_ERROR;
     }
 
-    // Step 4: Post-process output
+    // Post-process output
     float* output_data = sg_output_tensor->data.f;
     postprocess_movenet_output(output_data, input_width, input_height, result);
 
@@ -449,7 +467,7 @@ OPERATE_RET inference_deinit(void)
     // global destructor issues with -fno-exceptions. The interpreter remains
     // allocated but unused. For proper cleanup, use placement new instead of new.
     // For now, just mark as uninitialized - the program runs indefinitely anyway.
-    sg_interpreter = nullptr;
+        sg_interpreter = nullptr;
 
     if (sg_tensor_arena != NULL) {
         tkl_system_psram_free(sg_tensor_arena);

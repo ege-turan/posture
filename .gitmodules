@@ -13,3 +13,12 @@
 [submodule "third_party/tflite-micro"]
 	path = third_party/tflite-micro
 	url = https://github.com/tensorflow/tflite-micro.git
+[submodule "CMSIS-NN"]
+	path = CMSIS-NN
+	url = https://github.com/ARM-software/CMSIS-NN
+[submodule "CMSIS-5"]
+	path = CMSIS-5
+	url = https://github.com/ARM-software/CMSIS_5
+[submodule "CMSIS-DSP"]
+	path = CMSIS-DSP
+	url = https://github.com/ARM-software/CMSIS-DSP

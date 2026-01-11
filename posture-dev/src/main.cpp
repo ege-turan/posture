@@ -64,15 +64,16 @@ namespace {
      }
      PR_NOTICE("Camera started - processing frames with MoveNet inference");
  
-     // float neck_angle = 0.0f;
-     // bool is_good = posture_get_status(&neck_angle);
+     float neck_angle = 0.0f;
+     int posture_status = posture_get_status(&neck_angle);
      
      while (true) {
         // Periodically check posture status
-        /*is_good = posture_get_status(&neck_angle);
+        posture_status = posture_get_status(&neck_angle);
 
-        PR_NOTICE("Posture: %s (Neck angle: %.1f deg)", 
-                is_good ? "GOOD" : "BAD", neck_angle);*/
+        const char* status_str = (posture_status == 1) ? "GOOD" : 
+                                 (posture_status == 0) ? "BAD" : "UNDETECTED";
+        PR_NOTICE("Posture: %s (Neck angle: %.1f deg)", status_str, neck_angle);
     
         tal_system_sleep(1000);
      }

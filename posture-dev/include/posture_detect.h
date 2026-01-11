@@ -28,9 +28,9 @@ void posture_frame_callback(uint8_t* yuv422_data, int width, int height, void* u
  * @brief Get the last detected posture status
  * 
  * @param angle_out Output parameter for neck angle in degrees (can be NULL)
- * @return true if posture is good, false otherwise
+ * @return int 0=BAD, 1=GOOD, 2=UNDETECTED
  */
-bool posture_get_status(float* angle_out);
+int posture_get_status(float* angle_out);
 
 /**
  * @brief Get the last pose result
