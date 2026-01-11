@@ -16,18 +16,25 @@ get_filename_component(APP_NAME ${APP_PATH} NAME)
 # Define the internal vendor path
 set(TFLM_ROOT "${APP_PATH}/vendor/tflm")
 
-# Collect all TFLM source files recursively
-file(GLOB_RECURSE TFLM_SRC 
-    "${TFLM_ROOT}/tensorflow/lite/micro/*.cc"
-    "${TFLM_ROOT}/tensorflow/lite/micro/kernels/*.cc"
-    "${TFLM_ROOT}/tensorflow/lite/micro/memory_planner/*.cc"
+set(TFLM_KERNEL_SRC
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/add.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/conv.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/depthwise_conv.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/logistic.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/mul.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/pooling.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/reshape.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/kernels/softmax.cc"
 )
 
-# Filter out test files to save 8MB Flash space
+# Filter out test files to save 8MB Flash space (currently overflowed by 64KB)
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*_test.cc$")
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*/test_util.cc$")
+list(FILTER TFLM_SRC EXCLUDE REGEX ".*/testing/.*")
+list(FILTER TFLM_SRC EXCLUDE REGEX ".*/test_helpers.*")
 
 # Define TFLM specific includes
+# Note: third_party is at vendor/tflm/third_party, not inside tensorflow
 set(TFLM_INC
     "${TFLM_ROOT}"
     "${TFLM_ROOT}/tensorflow"
@@ -78,6 +85,8 @@ set_target_properties(${EXAMPLE_LIB} PROPERTIES
 target_compile_options(${EXAMPLE_LIB}
     PRIVATE
         "-Os"  # Optimize for size (important for 8MB Flash)
+        "-DTF_LITE_STRIP_ERROR_STRINGS"  # Strip debug strings to save ~100-200KB flash
+        "-DTF_LITE_STATIC_MEMORY=1"  # Required for TFLM: uses static memory allocation, skips problematic includes
     )
 
 # C++-specific flags (only applied to .cpp/.cc files, not .c files like camera.c)
@@ -85,4 +94,5 @@ target_compile_options(${EXAMPLE_LIB}
     PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>        # Disable RTTI for embedded
         $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>  # Disable exceptions for embedded
-    )
+        $<$<COMPILE_LANGUAGE:CXX>:-fno-use-cxa-atexit> # Removes need for __dso_handle and saves Flash
+        )

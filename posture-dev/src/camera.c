@@ -642,15 +642,15 @@ OPERATE_RET camera_deinit(void)
 
     // Cleanup display resources
     if (sg_p_display_fb_1 != NULL) {
-        tdl_disp_destroy_frame_buff(sg_p_display_fb_1);
+        tdl_disp_free_frame_buff(sg_p_display_fb_1);
         sg_p_display_fb_1 = NULL;
     }
     if (sg_p_display_fb_2 != NULL) {
-        tdl_disp_destroy_frame_buff(sg_p_display_fb_2);
+        tdl_disp_free_frame_buff(sg_p_display_fb_2);
         sg_p_display_fb_2 = NULL;
     }
     if (sg_p_display_fb_rotat != NULL) {
-        tdl_disp_destroy_frame_buff(sg_p_display_fb_rotat);
+        tdl_disp_free_frame_buff(sg_p_display_fb_rotat);
         sg_p_display_fb_rotat = NULL;
     }
 
