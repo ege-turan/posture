@@ -4,11 +4,15 @@
  * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  */
 
+// Note: TF_LITE_STATIC_MEMORY is defined globally in CMakeLists.txt
+// No need to define it here
+
 #include "inference.h"
 
 #include "tuya_cloud_types.h"
 #include "tal_api.h"
 #include "tkl_output.h"
+#include "tkl_memory.h"
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
@@ -248,57 +252,89 @@ OPERATE_RET inference_init(const inference_config_t* config)
         return OPRT_INVALID_PARM;
     }
 
-    // Allocate tensor arena
-    // TODO: Adjust size based on your model requirements (typical: 50-200KB)
-    sg_tensor_arena_size = 150 * 1024;  // 150KB (increased from 100KB for MoveNet)
-    sg_tensor_arena = (uint8_t*)tal_malloc(sg_tensor_arena_size);
+    // Allocate tensor arena from PSRAM heap (8.625MB total, shared with display buffers)
+    // Using PSRAM instead of SRAM heap (~245KB free) to support larger models
+    // Display buffers need ~1.35MB (3x 450KB), so allocate 1.5MB for tensor arena
+    // MoveNet Lightning typically needs 1-2MB, so 1.5MB should be sufficient
+    sg_tensor_arena_size = 1536 * 1024;  // 1.5MB
+    sg_tensor_arena = (uint8_t*)tkl_system_psram_malloc(sg_tensor_arena_size);
     if (sg_tensor_arena == NULL) {
         PR_ERR("Failed to allocate tensor arena (%zu bytes)", sg_tensor_arena_size);
         return OPRT_MALLOC_FAILED;
     }
 
+    PR_NOTICE("Tensor arena allocated successfully");
+    PR_NOTICE("Tensor arena size: %zu bytes", sg_tensor_arena_size);
+    PR_NOTICE("Tensor arena pointer: %p", (void*)sg_tensor_arena);
+
     // Build op resolver - optimized for MoveNet Lightning architecture
     // Based on MoveNet's architecture, we only include operations it actually uses
     // This reduces code size by excluding unused kernels
-    static tflite::MicroMutableOpResolver<10> resolver;
-    
-    // Core operations used by MoveNet Lightning (based on typical architecture)
-    resolver.AddConv2D();              // ✅ Definitely used - main convolution operations
-    resolver.AddDepthwiseConv2D();     // ✅ Definitely used - depthwise separable convs
-    resolver.AddMaxPool2D();           // ✅ Often used - pooling operations
-    resolver.AddRelu();                // ✅ Definitely used - activation function
-    resolver.AddReshape();             // ✅ Likely used - tensor reshaping
-    resolver.AddDequantize();          // ✅ Required - INT8 model output to float32
-    resolver.AddPad();                 // ✅ Often used - padding for convolutions
-    resolver.AddConcatenation();       // ✅ Sometimes used - skip connections
-    resolver.AddAdd();                 // ✅ Likely used - residual connections
-    
-    // Removed operators that MoveNet Lightning typically doesn't use:
-    // - Softmax: Not needed for pose estimation (regression, not classification)
-    // - FullyConnected: MoveNet uses conv layers, not FC layers
-    // - Quantize: Model is pre-quantized, input is already uint8
-    // - Mean: Not commonly used in MoveNet
-    // - Mul: Less common, can be added back if linker error occurs
-    // - AveragePool2D: MoveNet uses MaxPool2D instead
+    static tflite::MicroMutableOpResolver<20> resolver;
 
-    // Build interpreter
-    // Note: We allocate the interpreter on the heap to avoid stack overflow
-    // For embedded systems, consider using a static buffer if stack is limited
+    // coming from the get_ops.py script
+    resolver.AddAdd();
+    resolver.AddArgMax();
+    resolver.AddCast();
+    resolver.AddConcatenation();
+    resolver.AddConv2D();
+    // resolver.AddDelegate();
+    resolver.AddDepthwiseConv2D();
+    resolver.AddDequantize();
+    resolver.AddDiv();
+    resolver.AddFloorDiv();
+    resolver.AddGatherNd();
+    resolver.AddLogistic();
+    resolver.AddMul();
+    resolver.AddPack();
+    resolver.AddQuantize();
+    resolver.AddReshape();
+    resolver.AddResizeBilinear();
+    resolver.AddSqrt();
+    resolver.AddSub();
+    resolver.AddUnpack();
+
+    // Calculate 16-byte aligned pointer
+    uintptr_t raw_addr = (uintptr_t)sg_tensor_arena;
+    uint8_t* aligned_ptr = (uint8_t*)((raw_addr + 15) & ~15);
+
+    // Calculate how much size we lost to alignment
+    size_t alignment_loss = (size_t)(aligned_ptr - sg_tensor_arena);
+    size_t effective_arena_size = sg_tensor_arena_size - alignment_loss;
+
+    PR_NOTICE("Alignment Check: Raw=%p, Aligned=%p, Available=%zu", 
+            (void*)sg_tensor_arena, (void*)aligned_ptr, effective_arena_size);
+
+    // Use aligned_ptr and effective_arena_size in the constructor below
     sg_interpreter = new tflite::MicroInterpreter(
-        sg_model, resolver, sg_tensor_arena, sg_tensor_arena_size);
+        sg_model, resolver, aligned_ptr, effective_arena_size);
     
     if (sg_interpreter == nullptr) {
         PR_ERR("Failed to create interpreter");
-        tal_free(sg_tensor_arena);
+        tkl_system_psram_free(sg_tensor_arena);
         sg_tensor_arena = NULL;
         return OPRT_MALLOC_FAILED;
     }
+
+    PR_NOTICE("Interpreted successfully");
+    
+    PR_NOTICE("=== MicroInterpreter Information ===");
+    PR_NOTICE("Interpreter pointer: %p", (void*)sg_interpreter);
+    PR_NOTICE("Arena size: %zu bytes", sg_tensor_arena_size);
+    
+    size_t arena_used = sg_interpreter->arena_used_bytes();
+    PR_NOTICE("Arena used: %zu bytes (%.1f%% of total)",
+              arena_used, (100.0f * arena_used) / sg_tensor_arena_size);
+    
+    PR_NOTICE("Number of inputs: %zu", sg_interpreter->inputs_size());
+    PR_NOTICE("Number of outputs: %zu", sg_interpreter->outputs_size());
+    PR_NOTICE("====================================");
 
     // Allocate memory for tensors
     TfLiteStatus allocate_status = sg_interpreter->AllocateTensors();
     if (allocate_status != kTfLiteOk) {
         PR_ERR("Failed to allocate tensors");
-        tal_free(sg_tensor_arena);
+        tkl_system_psram_free(sg_tensor_arena);
         sg_tensor_arena = NULL;
         return OPRT_COM_ERROR;
     }
@@ -416,7 +452,7 @@ OPERATE_RET inference_deinit(void)
     sg_interpreter = nullptr;
 
     if (sg_tensor_arena != NULL) {
-        tal_free(sg_tensor_arena);
+        tkl_system_psram_free(sg_tensor_arena);
         sg_tensor_arena = NULL;
         sg_tensor_arena_size = 0;
     }

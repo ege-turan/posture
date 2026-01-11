@@ -25,6 +25,7 @@ file(GLOB_RECURSE TFLM_SRC
     "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/arena_allocator/*.cc"
     "${TFLM_ROOT}/tensorflow/tensorflow/lite/micro/tflite_bridge/*.cc"
     "${TFLM_ROOT}/tensorflow/tensorflow/lite/core/api/*.cc"
+    "${TFLM_ROOT}/tensorflow/tensorflow/compiler/mlir/lite/core/api/*.cc"  # ErrorReporter implementation
     "${TFLM_ROOT}/tensorflow/tensorflow/lite/core/c/*.cc"
     # Add kernel utility files (these are required by kernels but not in micro/kernels/)
     "${TFLM_ROOT}/tensorflow/tensorflow/lite/kernels/kernel_util.cc"
@@ -46,6 +47,7 @@ list(FILTER TFLM_SRC EXCLUDE REGEX ".*_test.cc$")
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*/test_util.cc$")
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*/testing/.*")
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*/test_helpers.*")
+list(FILTER TFLM_SRC EXCLUDE REGEX ".*/debug_log\\.cc$")  # Exclude reference implementation
 
 # Define TFLM specific includes
 # Note: third_party is at vendor/tflm/third_party, not inside tensorflow
@@ -99,7 +101,6 @@ set_target_properties(${EXAMPLE_LIB} PROPERTIES
 target_compile_options(${EXAMPLE_LIB}
     PRIVATE
         "-Os"  # Optimize for size (important for 8MB Flash)
-        "-DTF_LITE_STRIP_ERROR_STRINGS"  # Strip debug strings to save ~100-200KB flash
         "-DTF_LITE_STATIC_MEMORY=1"  # Required for TFLM: uses static memory allocation, skips problematic includes
     )
 
