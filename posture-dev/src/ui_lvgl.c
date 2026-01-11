@@ -60,6 +60,8 @@ typedef struct {
 /* Root UI objects */
 static lv_obj_t * g_list_cont = NULL;
 static lv_obj_t * g_bottom_bar = NULL;
+static lv_obj_t * g_posture_bar = NULL;
+
 
 /* Simple counters so you can see events */
 static uint32_t g_call_cnt  = 0;
@@ -87,6 +89,40 @@ static lv_color_t priority_to_color(ai_priority_t p)
         case AI_PRIORITY_LOW:
         default:                 return lv_color_hex(0x34C759); // green
     }
+}
+
+typedef enum {
+    POSTURE_UNKNOWN = 0,
+    POSTURE_GOOD,
+    POSTURE_BAD,
+} posture_state_t;
+
+static posture_state_t posture_get_state(void)
+{
+    return POSTURE_GOOD;   // TODO: replace with your real flag
+}
+
+static lv_color_t posture_to_color(posture_state_t s)
+{
+    switch (s) {
+        case POSTURE_GOOD:    return lv_color_hex(0x34C759); // green
+        case POSTURE_BAD:     return lv_color_hex(0xFF3B30); // red
+        case POSTURE_UNKNOWN:
+        default:              return lv_color_hex(0x8E8E93); // gray
+    }
+}
+
+void ui_set_posture_state(int state)
+{
+    if (!g_posture_bar) return;
+
+    posture_state_t s = POSTURE_UNKNOWN;
+    if (state == 1) s = POSTURE_GOOD;
+    else if (state == 2) s = POSTURE_BAD;
+
+    lv_vendor_disp_lock();
+    lv_obj_set_style_bg_color(g_posture_bar, posture_to_color(s), 0);
+    lv_vendor_disp_unlock();
 }
 
 /* -----------------------------
@@ -240,13 +276,19 @@ static void ui_create_notification_screen(void)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x0066FF), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
-    /* Bottom bar height (tune as desired) */
-    const lv_coord_t bar_h = 70;
+    /* Heights */
+    const lv_coord_t bar_h     = 70;  // Call/Text/Email
+    const lv_coord_t posture_h = 26;  // posture indicator
+    const lv_coord_t bottom_h  = bar_h + posture_h;
 
-    /* List container fills above the bar */
+    /* Screen size (absolute pixels) */
+    const lv_coord_t scr_h = lv_obj_get_height(scr);
+    const lv_coord_t scr_w = lv_obj_get_width(scr);
+
+    /* List container fills above BOTH bars */
     g_list_cont = lv_obj_create(scr);
     lv_obj_set_pos(g_list_cont, 0, 0);
-    lv_obj_set_size(g_list_cont, lv_pct(100), lv_pct(100) - bar_h);
+    lv_obj_set_size(g_list_cont, scr_w, scr_h - bottom_h);
 
     lv_obj_set_style_pad_all(g_list_cont, 12, 0);
     lv_obj_set_style_pad_row(g_list_cont, 10, 0);
@@ -259,23 +301,38 @@ static void ui_create_notification_screen(void)
     lv_obj_set_scroll_dir(g_list_cont, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(g_list_cont, LV_SCROLLBAR_MODE_AUTO);
 
-    /* Bottom bar */
+    /* Bottom button bar: sits directly above posture bar */
     g_bottom_bar = lv_obj_create(scr);
-    lv_obj_set_pos(g_bottom_bar, 0, lv_pct(100) - bar_h);
-    lv_obj_set_size(g_bottom_bar, lv_pct(100), bar_h);
+    lv_obj_set_pos(g_bottom_bar, 0, scr_h - bottom_h);
+    lv_obj_set_size(g_bottom_bar, scr_w, bar_h);
 
     lv_obj_set_style_pad_all(g_bottom_bar, 10, 0);
     lv_obj_set_style_pad_column(g_bottom_bar, 10, 0);
     lv_obj_set_style_border_width(g_bottom_bar, 0, 0);
-
-    /* Slightly more opaque so it reads as a control surface */
     lv_obj_set_style_bg_opa(g_bottom_bar, LV_OPA_40, 0);
 
     lv_obj_set_layout(g_bottom_bar, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(g_bottom_bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(g_bottom_bar, LV_FLEX_ALIGN_SPACE_EVENLY,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    /* Posture indicator bar: bottom-most */
+    g_posture_bar = lv_obj_create(scr);
+    lv_obj_set_pos(g_posture_bar, 0, scr_h - posture_h);
+    lv_obj_set_size(g_posture_bar, scr_w, posture_h);
+
+    lv_obj_set_style_pad_all(g_posture_bar, 6, 0);
+    lv_obj_set_style_border_width(g_posture_bar, 0, 0);
+    lv_obj_set_style_radius(g_posture_bar, 0, 0);
+
+    lv_obj_set_style_bg_color(g_posture_bar, posture_to_color(posture_get_state()), 0);
+    lv_obj_set_style_bg_opa(g_posture_bar, LV_OPA_COVER, 0);
+
+    lv_obj_t * pl = lv_label_create(g_posture_bar);
+    lv_label_set_text(pl, "posture");
+    lv_obj_center(pl);
 }
+
 
 /* -----------------------------
  * Bottom buttons
