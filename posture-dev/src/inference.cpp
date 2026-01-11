@@ -36,6 +36,10 @@ static uint8_t* sg_tensor_arena = nullptr;
 static size_t sg_tensor_arena_size = 0;
 static bool sg_initialized = false;
 
+// Temporary buffer for rotated YUV422 (max 480x480 = 460KB)
+static uint8_t* sg_rotated_buffer = nullptr;
+static size_t sg_rotated_buffer_size = 0;
+
 static inference_config_t sg_config = {
     .enable_visualization = false,
     .min_confidence = 0.3f,
@@ -117,6 +121,42 @@ static void preprocess_for_movenet(uint8_t* rgb_data, int input_width, int input
             output_buffer[dst_index + 0] = rgb_data[src_index + 0];  // R
             output_buffer[dst_index + 1] = rgb_data[src_index + 1];  // G
             output_buffer[dst_index + 2] = rgb_data[src_index + 2];  // B
+        }
+    }
+}
+
+/**
+ * @brief Rotate YUV422 image 90° clockwise
+ * 
+ * Rotates a YUV422 (UYVY format) image 90° clockwise.
+ * Input: width x height -> Output: height x width
+ * 
+ * @param input_data Input YUV422 data (UYVY format)
+ * @param input_width Input image width
+ * @param input_height Input image height
+ * @param output_data Output YUV422 data (must be pre-allocated: height * width * 2 bytes)
+ */
+static void rotate_yuv422_90cw(uint8_t* input_data, int input_width, int input_height, uint8_t* output_data)
+{
+    // For 90° clockwise rotation:
+    // Original pixel at (x, y) -> New position at (input_height-1-y, x)
+    // Output dimensions: input_height x input_width
+    
+    for (int y = 0; y < input_height; y++) {
+        for (int x = 0; x < input_width; x++) {
+            // Source position in original image
+            int src_index = (y * input_width + x) * 2;
+            
+            // Destination position (90° clockwise)
+            // Original (x, y) -> New (input_height-1-y, x)
+            int dst_x = input_height - 1 - y;
+            int dst_y = x;
+            int dst_index = (dst_y * input_height + dst_x) * 2;
+            
+            // Copy UYVY pixel (2 bytes per pixel in UYVY format)
+            // Note: UYVY has [U0,Y0,V0,Y1] for 2 pixels, we treat each pixel independently
+            output_data[dst_index + 0] = input_data[src_index + 0];  // U
+            output_data[dst_index + 1] = input_data[src_index + 1];  // Y
         }
     }
 }
@@ -426,9 +466,29 @@ OPERATE_RET inference_process_frame(uint8_t* yuv422_data, int input_width, int i
         return OPRT_INVALID_PARM;
     }
 
+    // Allocate buffer for rotated YUV422 if needed
+    // After rotation: width x height becomes height x width
+    size_t rotated_size = input_height * input_width * 2;
+    if (sg_rotated_buffer == nullptr || sg_rotated_buffer_size < rotated_size) {
+        if (sg_rotated_buffer != nullptr) {
+            tkl_system_psram_free(sg_rotated_buffer);
+        }
+        sg_rotated_buffer_size = rotated_size;
+        sg_rotated_buffer = (uint8_t*)tkl_system_psram_malloc(sg_rotated_buffer_size);
+        if (sg_rotated_buffer == nullptr) {
+            PR_ERR("Failed to allocate rotated buffer");
+            return OPRT_MALLOC_FAILED;
+        }
+    }
+    
+    // Rotate YUV422 90° clockwise (width x height -> height x width)
+    rotate_yuv422_90cw(yuv422_data, input_width, input_height, sg_rotated_buffer);
+    int rotated_width = input_height;   // After 90° CW: width becomes height
+    int rotated_height = input_width;   // After 90° CW: height becomes width
+
     // Preprocessing (YUV422 -> 192x192 RGB)
     uint8_t* preprocessed = sg_input_tensor->data.uint8;
-    yuv422_to_movenet_preprocessed(yuv422_data, input_width, input_height, preprocessed);
+    yuv422_to_movenet_preprocessed(sg_rotated_buffer, rotated_width, rotated_height, preprocessed);
 
     // Run inference
     TfLiteStatus invoke_status = sg_interpreter->Invoke();
@@ -473,6 +533,12 @@ OPERATE_RET inference_deinit(void)
         tkl_system_psram_free(sg_tensor_arena);
         sg_tensor_arena = NULL;
         sg_tensor_arena_size = 0;
+    }
+
+    if (sg_rotated_buffer != NULL) {
+        tkl_system_psram_free(sg_rotated_buffer);
+        sg_rotated_buffer = NULL;
+        sg_rotated_buffer_size = 0;
     }
 
     sg_model = nullptr;
