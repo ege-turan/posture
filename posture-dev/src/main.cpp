@@ -61,7 +61,7 @@ void user_main()
 
 
     tal_sw_timer_init();
-    // tal_workq_init(); // erm
+    // tal_workq_init(); // erm // why was this in here? does keeping it in the file work?
 
     PR_NOTICE("boot: starting BLE");
     //ble_central_start();
@@ -76,9 +76,13 @@ void user_main()
     const char* msg3 = "Meeting moved up: Demo Prep now at 2:00pm (in 10 min)!!";
 
 
-    //board_register_hardware();
+    //board_register_hardware(); // done in the lvgl code
     //display_demo_init();
     ui_lvgl_start();
+
+
+
+    static char msg[256];
 
     std::int32_t cnt = 0;
     while (true) {
@@ -88,6 +92,12 @@ void user_main()
         PR_DEBUG("AI p1=%d", (int)ai_classify_text(msg1));
         PR_DEBUG("AI p2=%d", (int)ai_classify_text(msg2));
         PR_DEBUG("AI p3=%d", (int)ai_classify_text(msg3));
+
+        if (ble_peripheral_port_pop_rx(msg, sizeof(msg))) {
+            // Safe context
+            //ui_add_notification_bubble(msg);
+            PR_DEBUG("message received");
+        }
 
         PR_DEBUG("cnt is %d", cnt++);
         tal_system_sleep(1000);
