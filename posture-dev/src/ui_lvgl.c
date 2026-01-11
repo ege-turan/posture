@@ -7,6 +7,37 @@
 
 #include <stdio.h>
 
+#include "ai_classifier.h"
+
+
+// TESTING MESSAGES
+static const char* g_call_msgs[] = {
+    "Missed call — call me back when you can",
+    "Can you hop on a call ASAP?",
+    "Quick call later today?",
+    "Call me when you see this, urgent",
+    "No rush — can we talk sometime this afternoon?"
+};
+
+static const char* g_text_msgs[] = {
+    "yo u free later?",
+    "pls send the doc when u get a sec",
+    "asap: we need to decide now",
+    "lol ok",
+    "hey heads up meeting moved to 4pm"
+};
+
+static const char* g_email_msgs[] = {
+    "Following up on the deliverables for this week.",
+    "Reminder: Please review the attached document by EOD.",
+    "Urgent: The demo is blocked; immediate action required.",
+    "Newsletter: Top picks for you this week.",
+    "Calendar update: Design Review moved to 3:00pm."
+};
+
+#define ARR_LEN(a) (sizeof(a) / sizeof((a)[0]))
+
+
 /* -----------------------------
  * Notification model
  * ----------------------------- */
@@ -20,7 +51,11 @@ typedef struct {
     notif_type_t type;
     const char * title;
     const char * detail;
+    const char * msg_text;      // chosen message (for classifier/debug if needed)
+    ai_priority_t priority;     // LOW/MED/HIGH
+    uint32_t test_index;        // index in the test array
 } notif_t;
+
 
 /* Root UI objects */
 static lv_obj_t * g_list_cont = NULL;
@@ -41,6 +76,16 @@ static const char * notif_type_to_str(notif_type_t t)
         case NOTIF_CALL:  return "Call";
         case NOTIF_EMAIL: return "Email";
         default:          return "Notification";
+    }
+}
+
+static lv_color_t priority_to_color(ai_priority_t p)
+{
+    switch (p) {
+        case AI_PRIORITY_HIGH:   return lv_color_hex(0xFF3B30); // red
+        case AI_PRIORITY_MEDIUM: return lv_color_hex(0xFFCC00); // yellow
+        case AI_PRIORITY_LOW:
+        default:                 return lv_color_hex(0x34C759); // green
     }
 }
 
@@ -124,10 +169,40 @@ static lv_obj_t * notif_card_create(lv_obj_t * parent, const notif_t * n)
 
     lv_obj_add_event_cb(card, notif_card_event_cb, LV_EVENT_CLICKED, NULL);
 
+    // added for priority
+    /* Top row: title (left) + priority square (right) */
+    lv_obj_t * top_row = lv_obj_create(card);
+    lv_obj_set_width(top_row, lv_pct(100));
+    lv_obj_set_height(top_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(top_row, LV_OPA_0, 0);
+    lv_obj_set_style_border_width(top_row, 0, 0);
+    lv_obj_set_style_pad_all(top_row, 0, 0);
+    lv_obj_set_style_pad_column(top_row, 8, 0);
+
+    lv_obj_set_layout(top_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(top_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(top_row, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t * title = lv_label_create(top_row);
+    lv_label_set_text(title, n->title ? n->title : notif_type_to_str(n->type));
+    lv_obj_set_width(title, lv_pct(85));          /* leave room for square */
+    lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+
+    lv_obj_t * pr = lv_obj_create(top_row);
+    lv_obj_set_size(pr, 16, 16);
+    lv_obj_set_style_radius(pr, 2, 0);           /* square-ish */
+    lv_obj_set_style_border_width(pr, 0, 0);
+    lv_obj_set_style_bg_color(pr, priority_to_color(n->priority), 0);
+    lv_obj_set_style_bg_opa(pr, LV_OPA_COVER, 0);
+
+    /*
     lv_obj_t * title = lv_label_create(card);
     lv_label_set_text(title, n->title ? n->title : notif_type_to_str(n->type));
     lv_obj_set_width(title, lv_pct(100));
     lv_label_set_long_mode(title, LV_LABEL_LONG_WRAP);
+    */
+
 
     if (n->detail && n->detail[0]) {
         lv_obj_t * detail = lv_label_create(card);
@@ -214,35 +289,65 @@ static void btn_add_notif_cb(lv_event_t * e)
     notif_t n = {0};
     n.type = t;
 
-    static char detail_buf[64]; /* simple shared buffer; ok for demo single-threaded */
+    static char title_buf[64];
+    static char detail_buf[96];
+
+    const char* chosen_msg = NULL;
+    uint32_t chosen_idx = 0;
+
     switch (t) {
-        case NOTIF_CALL:
-            n.title = "Call";
+        case NOTIF_CALL: {
+            chosen_idx = (uint32_t)(lv_rand(0, (uint32_t)ARR_LEN(g_call_msgs) - 1));
+            chosen_msg = g_call_msgs[chosen_idx];
+            n.priority = ai_classify_text(chosen_msg);
+
+            snprintf(title_buf, sizeof(title_buf), "Call (%lu)", (unsigned long)chosen_idx);
+            n.title = title_buf;
+
             g_call_cnt++;
-            /* make detail different each press */
             snprintf(detail_buf, sizeof(detail_buf), "Missed call (%lu)", (unsigned long)g_call_cnt);
             n.detail = detail_buf;
             break;
-        case NOTIF_TEXT:
-            n.title = "Text message";
+        }
+        case NOTIF_TEXT: {
+            chosen_idx = (uint32_t)(lv_rand(0, (uint32_t)ARR_LEN(g_text_msgs) - 1));
+            chosen_msg = g_text_msgs[chosen_idx];
+            n.priority = ai_classify_text(chosen_msg);
+
+            snprintf(title_buf, sizeof(title_buf), "Text (%lu)", (unsigned long)chosen_idx);
+            n.title = title_buf;
+
             g_text_cnt++;
             snprintf(detail_buf, sizeof(detail_buf), "New message (%lu)", (unsigned long)g_text_cnt);
             n.detail = detail_buf;
             break;
-        case NOTIF_EMAIL:
-            n.title = "Email";
+        }
+        case NOTIF_EMAIL: {
+            chosen_idx = (uint32_t)(lv_rand(0, (uint32_t)ARR_LEN(g_email_msgs) - 1));
+            chosen_msg = g_email_msgs[chosen_idx];
+            n.priority = ai_classify_text(chosen_msg);
+
+            snprintf(title_buf, sizeof(title_buf), "Email (%lu)", (unsigned long)chosen_idx);
+            n.title = title_buf;
+
             g_email_cnt++;
             snprintf(detail_buf, sizeof(detail_buf), "New email (%lu)", (unsigned long)g_email_cnt);
             n.detail = detail_buf;
             break;
+        }
         default:
+            n.priority = AI_PRIORITY_LOW;
             n.title = "Notification";
             n.detail = "Unknown";
             break;
     }
 
+    n.msg_text = chosen_msg;
+    n.test_index = chosen_idx;
+
     notif_list_add_top(&n);
 }
+
 
 static lv_obj_t * make_bottom_button(lv_obj_t * parent, const char * label_txt, notif_type_t t)
 {
