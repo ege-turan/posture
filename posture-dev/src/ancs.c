@@ -26,9 +26,9 @@
 // We'll undefine LIST_HEAD after including nimble headers, then Tuya will redefine it
 #include "ble_gatt.h"
 #include "ble_uuid.h"
-// Note: ble_gap.h is not included here to avoid header dependency issues
-// Security/pairing will be handled via timer-based retry approach
-// #include "ble_hs.h"
+#include "ble_gap.h"  // For security/pairing functions
+#include "ble_sm.h"   // For security manager functions
+#include "ble_hs.h"   // For ble_hs_cfg (tuya_ble_hs_cfg)
 #include "ble_hs_mbuf.h"
 
 // Undefine LIST_HEAD to allow Tuya's version to be defined
@@ -37,10 +37,8 @@
 #undef LIST_HEAD
 #endif
 
-// Define BLE_HS_CONN_HANDLE_NONE instead of including ble_hs.h
-// (ble_hs.h pulls in internal headers that cause conflicts)
-#define BLE_HS_CONN_HANDLE_NONE     0xffff
-#define BLE_HS_EDONE                (0x80)  // Error code for "done" status
+// Note: BLE_HS_CONN_HANDLE_NONE and BLE_HS_EDONE are now defined in ble_hs.h
+// which is included via ble_gap.h
 
 // Now include Tuya headers (which will define their version of LIST_HEAD)
 // Include logging headers first so PR_DEBUG is available
@@ -101,6 +99,9 @@ static const ble_uuid128_t ancs_data_source_uuid = BLE_UUID128_INIT(
 
 // Client Characteristic Configuration Descriptor UUID (16-bit)
 static const ble_uuid16_t cccd_uuid = BLE_UUID16_INIT(0x2902);
+
+// GAP event listener for security/pairing events
+static struct ble_gap_event_listener ancs_gap_event_listener;
 
 /**
  * @brief ANCS client state
@@ -512,8 +513,134 @@ OPERATE_RET ancs_init(ancs_notification_callback_t notification_cb,
     ancs_ctx.notification_cb = notification_cb;
     ancs_ctx.data_cb = data_cb;
     
-    PR_DEBUG("ANCS: Initialized with security configuration (iOS will initiate pairing)");
+    // Configure NimBLE security settings (using Tuya's config structure)
+    extern struct ble_hs_cfg tuya_ble_hs_cfg;
+    tuya_ble_hs_cfg.sm_io_cap = BLE_HS_IO_DISPLAY_ONLY;
+    tuya_ble_hs_cfg.sm_bonding = 1;
+    tuya_ble_hs_cfg.sm_mitm = 1;
+    tuya_ble_hs_cfg.sm_sc = 1;
+    tuya_ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    tuya_ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    
+    PR_NOTICE("ANCS: Security configured - IO_CAP=%d, Bonding=%d, MITM=%d, SC=%d",
+             tuya_ble_hs_cfg.sm_io_cap, tuya_ble_hs_cfg.sm_bonding, 
+             tuya_ble_hs_cfg.sm_mitm, tuya_ble_hs_cfg.sm_sc);
+    
+    // Register GAP event listener for security/pairing events
+    int rc = ble_gap_event_listener_register(&ancs_gap_event_listener,
+                                              ancs_gap_event_handler,
+                                              NULL);
+    if (rc != 0) {
+        PR_ERR("ANCS: Failed to register GAP event listener, rc=%d", rc);
+        return OPRT_COM_ERROR;
+    }
+    
+    PR_DEBUG("ANCS: Initialized with security configuration and GAP event listener registered");
     return OPRT_OK;
+}
+
+/**
+ * @brief NimBLE GAP event handler for security/pairing events
+ * 
+ * TAL doesn't expose security events, so we handle them directly at NimBLE layer
+ */
+int ancs_gap_event_handler(struct ble_gap_event *event, void *arg)
+{
+    (void)arg;
+    int rc;
+    
+    switch (event->type) {
+    case BLE_GAP_EVENT_CONNECT:
+        if (event->connect.status == 0) {
+            ancs_ctx.conn_handle = event->connect.conn_handle;
+            ancs_ctx.state = ANCS_STATE_CONNECTED;
+            ancs_ctx.mtu_exchange_complete = false;
+            ancs_ctx.encryption_ready = false;
+            
+            PR_DEBUG("ANCS: iPhone connected, conn_handle=%d", ancs_ctx.conn_handle);
+            
+            // Start security procedure (pairing)
+            rc = ble_gap_security_initiate(event->connect.conn_handle);
+            if (rc != 0) {
+                PR_ERR("ANCS: Failed to initiate security: %d", rc);
+            } else {
+                PR_NOTICE("ANCS: Security procedure initiated");
+            }
+        }
+        break;
+        
+    case BLE_GAP_EVENT_ENC_CHANGE:
+        PR_NOTICE("ANCS: Encryption change event - status=%d", event->enc_change.status);
+        if (event->enc_change.status == 0 && 
+            event->enc_change.conn_handle == ancs_ctx.conn_handle) {
+            PR_NOTICE("ANCS: Link encrypted successfully!");
+            ancs_ctx.encryption_ready = true;
+            
+            // NOW start ANCS service discovery
+            PR_NOTICE("ANCS: Starting ANCS service discovery");
+            ancs_ctx.state = ANCS_STATE_DISCOVERING_SERVICE;
+            ancs_ctx.service_found = false;
+            
+            rc = ble_gattc_disc_svc_by_uuid(event->enc_change.conn_handle,
+                                            &ancs_service_uuid.u,
+                                            ancs_svc_disc_cb,
+                                            NULL);
+            if (rc != 0) {
+                PR_ERR("ANCS: Failed to discover ANCS service: %d", rc);
+                ancs_ctx.state = ANCS_STATE_CONNECTED;
+            }
+        } else {
+            PR_ERR("ANCS: Encryption failed, status=%d", event->enc_change.status);
+        }
+        break;
+        
+    case BLE_GAP_EVENT_PASSKEY_ACTION:
+        PR_NOTICE("==========================================");
+        PR_NOTICE("ANCS: PASSKEY ACTION REQUIRED");
+        PR_NOTICE("Action type: %d", event->passkey.params.action);
+        
+        if (event->passkey.params.action == BLE_SM_IOACT_DISP) {
+            struct ble_sm_io pkey = {0};
+            pkey.action = event->passkey.params.action;
+            pkey.passkey = event->passkey.params.numcmp;
+            
+            PR_NOTICE(">>> ENTER THIS CODE ON iPHONE: %06lu <<<", 
+                     (unsigned long)event->passkey.params.numcmp);
+            PR_NOTICE("==========================================");
+            
+            int rc = ble_sm_inject_io(event->passkey.conn_handle, &pkey);
+            if (rc != 0) {
+                PR_ERR("ANCS: Failed to inject passkey, rc=%d", rc);
+            }
+            return rc;
+            
+        } else if (event->passkey.params.action == BLE_SM_IOACT_NUMCMP) {
+            struct ble_sm_io pkey = {0};
+            pkey.action = event->passkey.params.action;
+            pkey.numcmp_accept = 1;
+            
+            PR_NOTICE(">>> CONFIRM THIS MATCHES iPHONE: %06lu <<<", 
+                     (unsigned long)event->passkey.params.numcmp);
+            PR_NOTICE("Auto-accepting for testing");
+            PR_NOTICE("==========================================");
+            
+            return ble_sm_inject_io(event->passkey.conn_handle, &pkey);
+        }
+        break;
+        
+    case BLE_GAP_EVENT_IDENTITY_RESOLVED:
+        PR_DEBUG("ANCS: Identity resolved");
+        break;
+        
+    case BLE_GAP_EVENT_REPEAT_PAIRING:
+        PR_NOTICE("ANCS: Repeat pairing attempt detected");
+        return BLE_GAP_REPEAT_PAIRING_RETRY;
+        
+    default:
+        break;
+    }
+    
+    return 0;
 }
 
 void ancs_handle_ble_event(TAL_BLE_EVT_PARAMS_T *p_event)
@@ -548,8 +675,24 @@ void ancs_handle_ble_event(TAL_BLE_EVT_PARAMS_T *p_event)
                          p_event->ble_event.exchange_mtu.mtu);
                 ancs_ctx.mtu_exchange_complete = true;
                 
-                // State-based: Check if all prerequisites are met and start discovery
-                ancs_check_and_start_discovery();
+                // Initiate pairing/encryption
+                PR_NOTICE("ANCS: Initiating pairing with iPhone...");
+                int rc = ble_gap_security_initiate(ancs_ctx.conn_handle);
+                if (rc == 0) {
+                    PR_NOTICE("ANCS: Pairing initiated successfully - wait for passkey prompt");
+                } else if (rc == BLE_HS_EALREADY) {
+                    PR_NOTICE("ANCS: Security already in progress");
+                    struct ble_gap_conn_desc desc;
+                    if (ble_gap_conn_find(ancs_ctx.conn_handle, &desc) == 0) {
+                        if (desc.sec_state.encrypted) {
+                            PR_NOTICE("ANCS: Already encrypted!");
+                            ancs_ctx.encryption_ready = true;
+                            ancs_check_and_start_discovery();
+                        }
+                    }
+                } else {
+                    PR_ERR("ANCS: Failed to initiate pairing, rc=%d (0x%x)", rc, rc);
+                }
             }
             break;
         }
@@ -681,6 +824,9 @@ bool ancs_is_connected(void)
 
 void ancs_deinit(void)
 {
+    // Unregister GAP event listener
+    ble_gap_event_listener_unregister(&ancs_gap_event_listener);
+    
     memset(&ancs_ctx, 0, sizeof(ancs_ctx));
     ancs_ctx.state = ANCS_STATE_DISCONNECTED;
     ancs_ctx.conn_handle = BLE_HS_CONN_HANDLE_NONE;

@@ -44,10 +44,14 @@ aux_source_directory(${APP_PATH}/src APP_SRC)
 
 # APP_INC
 # We merge the original include with the new TFLM includes
+# Also add nimble/host directory for tuya_ble_mempool.h (needed by ble_gap.h)
+# Note: This is a private header directory, but needed for ble_gap.h includes
+# Use CMAKE_SOURCE_DIR to get the root source directory (where root CMakeLists.txt is)
 set(APP_INC 
     ${APP_PATH}/include
     ${APP_PATH}/models
     ${TFLM_INC}
+    ${CMAKE_SOURCE_DIR}/src/tal_bluetooth/nimble/host  # For tuya_ble_mempool.h
 )
 
 ########################################

@@ -28,6 +28,9 @@ extern "C" {
 #include "tal_bluetooth.h"
 #include "tal_bluetooth_def.h"
 
+// Forward declaration for NimBLE GAP event (defined in ble_gap.h)
+struct ble_gap_event;
+
 /**
  * @brief ANCS Service and Characteristic UUIDs
  */
@@ -196,6 +199,18 @@ bool ancs_is_connected(void);
  * @brief Deinitialize ANCS client
  */
 void ancs_deinit(void);
+
+/**
+ * @brief NimBLE GAP event handler for security/pairing events
+ * 
+ * This needs to be called from the application's NimBLE GAP event listener
+ * to handle security/pairing events that TAL doesn't expose.
+ * 
+ * @param event NimBLE GAP event structure
+ * @param arg Optional argument (unused)
+ * @return 0 on success, BLE_GAP_REPEAT_PAIRING_RETRY for repeat pairing, or error code
+ */
+int ancs_gap_event_handler(struct ble_gap_event *event, void *arg);
 
 #ifdef __cplusplus
 }
