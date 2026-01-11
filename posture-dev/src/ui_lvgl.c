@@ -396,6 +396,24 @@ void ui_add_notification_email(void)
     lv_vendor_disp_unlock();
 }
 
+void ui_add_notification_from_text(const char *msg, int prio)
+{
+    if (!msg) return;
+
+    notif_t n = {0};
+    n.type = NOTIF_TEXT;            // treat BLE payload as a “text” for now
+    n.msg_text = msg;
+    n.priority = (ai_priority_t)prio;
+
+    // Use the message itself as the detail
+    n.title  = "Message";
+    n.detail = msg;
+
+    lv_vendor_disp_lock();
+    notif_list_add_top(&n);
+    lv_vendor_disp_unlock();
+}
+
 /* -----------------------------
  * Entry point
  * ----------------------------- */

@@ -11,6 +11,8 @@ void ui_add_notification_call(void);
 void ui_add_notification_text(void);
 void ui_add_notification_email(void);
 
+void ui_add_notification_from_text(const char *msg, int prio);
+
 #ifdef __cplusplus
 }
 #endif

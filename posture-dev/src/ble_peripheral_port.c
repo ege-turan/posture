@@ -10,10 +10,10 @@ static volatile bool g_notify_enabled = false;
 static TAL_BLE_PEER_INFO_T sg_peer;
 static ble_peripheral_rx_cb_t sg_rx_cb = NULL;
 
-/* Advertising: Flags + Complete Local Name "TUYA_HACK" */
+/* Advertising: Flags + Complete Local Name "POST_HACK" */
 static uint8_t s_adv_data[] = {
     0x02, 0x01, 0x06,
-    0x0A, 0x09, 'T','U','Y','A','_','H','A','C','K'
+    0x0A, 0x09, 'P','O','S','T','_','H','A','C','K'
 };
 
 static void ble_log_hex(const uint8_t *p, uint16_t len)

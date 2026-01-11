@@ -39,6 +39,61 @@ extern "C" {
 
 namespace {
 
+static constexpr std::size_t BLE_INBOX_MAX = 256;
+
+static char g_ble_inbox[BLE_INBOX_MAX];
+static volatile bool g_ble_inbox_full = false;
+
+/**
+ * Called from BLE stack context. Keep it short: copy bytes, return.
+ */
+extern "C" void on_ble_rx(const uint8_t *data, uint16_t len)
+{
+    if (!data || len == 0) {
+        return;
+    }
+
+    if (g_ble_inbox_full) {
+        // Drop if previous message not yet consumed.
+        return;
+    }
+
+    std::size_t n = (len < (BLE_INBOX_MAX - 1)) ? len : (BLE_INBOX_MAX - 1);
+    memcpy(g_ble_inbox, data, n);
+    g_ble_inbox[n] = '\0';
+    g_ble_inbox_full = true;
+}
+
+
+static std::size_t bounded_strlen(const char *s, std::size_t max_n)
+{
+    std::size_t i = 0;
+    for (; i < max_n; ++i) {
+        if (s[i] == '\0') break;
+    }
+    return i;
+}
+
+/**
+ * Runs in your main loop context. Safe to call UI/LVGL here.
+ */
+static bool pop_ble_message(char *out, std::size_t out_sz)
+{
+    if (!g_ble_inbox_full || !out || out_sz == 0) {
+        return false;
+    }
+
+    std::size_t n = bounded_strlen(g_ble_inbox, BLE_INBOX_MAX);
+    if (n >= out_sz) n = out_sz - 1;
+
+    memcpy(out, g_ble_inbox, n);
+    out[n] = '\0';
+
+    g_ble_inbox_full = false;
+    return true;
+}
+
+
 /**
  * @brief Main application logic
  *
@@ -67,6 +122,9 @@ void user_main()
     //ble_central_start();
     ble_peripheral_port_start();
 
+    // Register RX callback AFTER start (either before or after is fine)
+    ble_peripheral_port_set_rx_callback(on_ble_rx);
+
 
     tal_system_sleep(2000);
     PR_ERR("boot: starting display init");
@@ -80,17 +138,31 @@ void user_main()
     //display_demo_init();
     ui_lvgl_start();
 
+    char ble_msg[256];
+
     std::int32_t cnt = 0;
     while (true) {
 
         //display_demo_step();
 
-        PR_DEBUG("AI p1=%d", (int)ai_classify_text(msg1));
-        PR_DEBUG("AI p2=%d", (int)ai_classify_text(msg2));
-        PR_DEBUG("AI p3=%d", (int)ai_classify_text(msg3));
+        
+        if (pop_ble_message(ble_msg, sizeof(ble_msg))) {
+            PR_NOTICE("BLE RX: %s", ble_msg);
+
+            // Classify incoming message
+            ai_priority_t prio = ai_classify_text(ble_msg);
+
+            // Add to LVGL as a new notification bubble
+            ui_add_notification_from_text(ble_msg, prio);
+        }
+
+
+        //PR_DEBUG("AI p1=%d", (int)ai_classify_text(msg1));
+        //PR_DEBUG("AI p2=%d", (int)ai_classify_text(msg2));
+        //PR_DEBUG("AI p3=%d", (int)ai_classify_text(msg3));
 
         PR_DEBUG("cnt is %d", cnt++);
-        tal_system_sleep(1000);
+        tal_system_sleep(500);
     }
 }
 
