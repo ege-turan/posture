@@ -42,6 +42,8 @@ set(TFLM_INC
 # APP_SRC
 aux_source_directory(${APP_PATH}/src APP_SRC)
 
+list(REMOVE_ITEM APP_SRC ${APP_PATH}/src/ancs_client.c) # !!! removing for peripheral build
+
 
 # APP_INC
 # We merge the original include with the new TFLM includes

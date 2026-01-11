@@ -32,7 +32,7 @@ extern "C" {
 }
 
 extern "C" {
-#include "ble_central_port.h"
+#include "ble_peripheral_port.h"
 }
 
 
@@ -63,8 +63,9 @@ void user_main()
     tal_sw_timer_init();
     // tal_workq_init(); // erm
 
-    PR_NOTICE("boot: starting BLE central");
-    ble_central_start();
+    PR_NOTICE("boot: starting BLE");
+    //ble_central_start();
+    ble_peripheral_port_start();
 
 
     tal_system_sleep(2000);
