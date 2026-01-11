@@ -173,11 +173,10 @@ void posture_frame_callback(uint8_t* yuv422_data, int width, int height, void* u
     // Queue stores frame_queue_item_t*, so we pass address of pointer variable
     OPERATE_RET ret = tal_queue_post(g_frame_queue, &item, 0);
     if (ret != OPRT_OK) {
-        PR_WARN("Frame queue full, dropping frame");
+        // Queue is full, silently drop frame (camera continues normally)
         free(item->frame_data);
         free(item);
     }
-    // If queue is full, frame is dropped (camera continues normally)
 }
 
 /* =========================================================
@@ -197,19 +196,37 @@ static void inference_worker_task(void* args)
 
     while (g_inference_worker_running) {
         frame_queue_item_t* item = NULL;
+        frame_queue_item_t* latest_item = NULL;
         
-        // Block until frame is available (0xFFFFFFFF = wait forever)
+        // Drain queue to get the most recent frame (skip old frames)
+        // Block until at least one frame is available (0xFFFFFFFF = wait forever)
         OPERATE_RET ret = tal_queue_fetch(g_frame_queue, &item, 0xFFFFFFFF);
         if (ret != OPRT_OK || item == NULL) {
             continue;
         }
-
-        // Process frame through MoveNet inference
+        
+        // Free the first item if we get more
+        latest_item = item;
+        
+        // Drain remaining frames from queue (non-blocking, timeout 0)
+        // Keep only the most recent frame
+        while (tal_queue_fetch(g_frame_queue, &item, 0) == OPRT_OK && item != NULL) {
+            // Free the previous frame (we only want the latest)
+            if (latest_item != NULL) {
+                if (latest_item->frame_data != NULL) {
+                    free(latest_item->frame_data);
+                }
+                free(latest_item);
+            }
+            latest_item = item;
+        }
+        
+        // Process the most recent frame through MoveNet inference
         pose_result_t pose{};
         float neck_angle = 0.0f;
         int posture_status = 2;  // Default to UNDETECTED
 
-        ret = inference_process_frame(item->frame_data, item->width, item->height, &pose);
+        ret = inference_process_frame(latest_item->frame_data, latest_item->width, latest_item->height, &pose);
         if (ret == OPRT_OK) {
             posture_status = posture_good(&pose, neck_angle);
             
@@ -234,7 +251,7 @@ static void inference_worker_task(void* args)
 
             // Post posture warning to display queue if bad posture detected
             if (posture_status == 0) {  // BAD posture
-                notification_queue_item_t notify = {0};
+                notification_queue_item_t notify = {};
                 notify.type = NOTIFY_TYPE_POSTURE_WARNING;
                 snprintf(notify.message, sizeof(notify.message), 
                         "Bad posture detected! Neck angle: %.1f deg", neck_angle);
@@ -248,8 +265,8 @@ static void inference_worker_task(void* args)
         }
 
         // Free frame data
-        free(item->frame_data);
-        free(item);
+        free(latest_item->frame_data);
+        free(latest_item);
     }
 
     PR_NOTICE("Inference worker thread stopped");
@@ -271,7 +288,7 @@ static void display_worker_task(void* args)
     PR_NOTICE("Display worker thread started");
 
     while (g_display_worker_running) {
-        notification_queue_item_t notify = {0};
+        notification_queue_item_t notify = {};
         
         // Block until notification is available
         OPERATE_RET ret = tal_queue_fetch(g_notify_queue, &notify, 0xFFFFFFFF);
@@ -339,7 +356,7 @@ static void ble_notification_callback(const char* notification_type, const char*
         return;
     }
 
-    notification_queue_item_t notify = {0};
+    notification_queue_item_t notify = {};
     
     // Map notification type to queue item type
     if (strcmp(notification_type, "phone_call") == 0) {
@@ -404,9 +421,9 @@ OPERATE_RET posture_detect_queue_init(void)
 {
     OPERATE_RET ret = OPRT_OK;
 
-    // Create frame queue (buffer up to 3 frames)
+    // Create frame queue (buffer up to 5 frames)
     // Each item is a pointer to frame_queue_item_t
-    ret = tal_queue_create_init(&g_frame_queue, sizeof(frame_queue_item_t*), 3);
+    ret = tal_queue_create_init(&g_frame_queue, sizeof(frame_queue_item_t*), 5);
     if (ret != OPRT_OK) {
         PR_ERR("Failed to create frame queue: %d", ret);
         return ret;
@@ -439,7 +456,7 @@ OPERATE_RET posture_detect_threads_start(void)
     g_inference_worker_running = true;
     thread_cfg.stackDepth = 8192;  // Need enough stack for inference
     thread_cfg.priority = THREAD_PRIO_2;
-    thread_cfg.thrdname = "inference_worker";
+    thread_cfg.thrdname = const_cast<char*>("inference_worker");
     ret = tal_thread_create_and_start(&g_inference_worker_thread, NULL, NULL, 
                                      inference_worker_task, NULL, &thread_cfg);
     if (ret != OPRT_OK) {
@@ -452,7 +469,7 @@ OPERATE_RET posture_detect_threads_start(void)
     g_display_worker_running = true;
     thread_cfg.stackDepth = 4096;
     thread_cfg.priority = THREAD_PRIO_3;
-    thread_cfg.thrdname = "display_worker";
+    thread_cfg.thrdname = const_cast<char*>("display_worker");
     ret = tal_thread_create_and_start(&g_display_worker_thread, NULL, NULL, 
                                      display_worker_task, NULL, &thread_cfg);
     if (ret != OPRT_OK) {
@@ -467,7 +484,7 @@ OPERATE_RET posture_detect_threads_start(void)
     g_ble_worker_running = true;
     thread_cfg.stackDepth = 4096;
     thread_cfg.priority = THREAD_PRIO_3;
-    thread_cfg.thrdname = "ble_worker";
+    thread_cfg.thrdname = const_cast<char*>("ble_worker");
     ret = tal_thread_create_and_start(&g_ble_worker_thread, NULL, NULL, 
                                      ble_worker_task, NULL, &thread_cfg);
     if (ret != OPRT_OK) {

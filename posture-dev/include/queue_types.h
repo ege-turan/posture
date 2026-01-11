@@ -26,17 +26,22 @@ typedef struct {
 } frame_queue_item_t;
 
 /**
+ * @brief Notification type enumeration
+ */
+typedef enum {
+    NOTIFY_TYPE_PHONE_CALL = 0,        // Phone call notification from Bluetooth
+    NOTIFY_TYPE_MESSAGE,               // Text message notification from Bluetooth
+    NOTIFY_TYPE_POSTURE_WARNING,       // Bad posture warning
+    NOTIFY_TYPE_POSTURE_GOOD,          // Posture improved notification (optional)
+    NOTIFY_TYPE_SYSTEM_INFO            // System information message
+} notification_type_t;
+
+/**
  * @brief Notification queue item structure
  * Contains notification messages for display
  */
 typedef struct {
-    enum {
-        NOTIFY_TYPE_PHONE_CALL,        // Phone call notification from Bluetooth
-        NOTIFY_TYPE_MESSAGE,           // Text message notification from Bluetooth
-        NOTIFY_TYPE_POSTURE_WARNING,   // Bad posture warning
-        NOTIFY_TYPE_POSTURE_GOOD,      // Posture improved notification (optional)
-        NOTIFY_TYPE_SYSTEM_INFO        // System information message
-    } type;
+    notification_type_t type;
     char message[128];                 // Notification message text
     uint32_t duration_ms;              // Display duration in milliseconds (0 = default)
     int priority;                      // Priority (higher = more urgent)

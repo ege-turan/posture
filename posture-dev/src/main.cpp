@@ -109,14 +109,7 @@ namespace {
      int posture_status = posture_get_status(&neck_angle);
      
      while (true) {
-        // Periodically check posture status
-        posture_status = posture_get_status(&neck_angle);
-
-        const char* status_str = (posture_status == 1) ? "GOOD" : 
-                                 (posture_status == 0) ? "BAD" : "UNDETECTED";
-        PR_NOTICE("Posture: %s (Neck angle: %.1f deg)", status_str, neck_angle);
-    
-        tal_system_sleep(5000);  // Check every 5 seconds
+        tal_system_sleep(5000);
      }
 
      // Cleanup (normally never reached in embedded systems)

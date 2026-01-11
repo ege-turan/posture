@@ -174,7 +174,7 @@ set_target_properties(${EXAMPLE_LIB} PROPERTIES
 # TARGET_ARCH=cortex-m33 equivalent: -mcpu=cortex-m33
 target_compile_options(${EXAMPLE_LIB}
     PRIVATE
-        "-Os"  # Optimize for size (important for 8MB Flash)
+        "-O3"  # Optimize for speed
         "-DTF_LITE_STATIC_MEMORY=1"  # Required for TFLM: uses static memory allocation, skips problematic includes
         "-DCMSIS_NN"  # Enable CMSIS-NN optimized kernels for Cortex-M (10-50x speedup for conv operations)
         "-mcpu=cortex-m33"  # Target ARM Cortex-M33 architecture (required for CMSIS-NN optimizations)
