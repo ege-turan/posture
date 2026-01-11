@@ -90,8 +90,10 @@ static BINARY_CONFIG_T sg_binary_config = {
 };
 
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
+#if 0  // Disabled: Video streaming to display (LVGL handles display)
 static TKL_DMA2D_FRAME_INFO_T sg_in_frame = {0};
 static TKL_DMA2D_FRAME_INFO_T sg_out_frame = {0};
+#endif
 static SEM_HANDLE sg_convert_sem;
 static uint8_t* sg_rotated_yuv422_buffer = NULL;  // Buffer for rotated YUV422 (for display)
 static size_t sg_rotated_yuv422_size = 0;
@@ -110,6 +112,7 @@ static size_t sg_rotated_yuv422_size = 0;
  * @param input_height Input image height
  * @param output_data Output YUV422 data (must be pre-allocated: height * width * 2 bytes)
  */
+#if 0  // Disabled: Video streaming to display (LVGL handles display)
 static void rotate_yuv422_90cw(uint8_t* input_data, int input_width, int input_height, uint8_t* output_data)
 {
     // For 90° clockwise rotation:
@@ -134,6 +137,7 @@ static void rotate_yuv422_90cw(uint8_t* input_data, int input_width, int input_h
         }
     }
 }
+#endif  // Disabled: Video streaming
 
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
 static void __dma2d_irq_cb(TUYA_DMA2D_IRQ_E type, VOID_T *args)
@@ -462,14 +466,8 @@ int yuv422_to_binary_with_config(uint8_t *yuv422_data, int width, int height, ui
  */
 static OPERATE_RET __get_camera_raw_frame_mono_cb(TDL_CAMERA_HANDLE_T hdl, TDL_CAMERA_FRAME_T *frame)
 {
-    TDL_DISP_FRAME_BUFF_T *target_fb = NULL;
-
     if (NULL == hdl || NULL == frame) {
         return OPRT_INVALID_PARM;
-    }
-
-    if (NULL == sg_p_display_fb) {
-        return OPRT_COM_ERROR;
     }
 
     // Call inference callback if registered (happens on CPU before display processing)
@@ -480,6 +478,11 @@ static OPERATE_RET __get_camera_raw_frame_mono_cb(TDL_CAMERA_HANDLE_T hdl, TDL_C
     // Video streaming to display is disabled to avoid interference with LVGL drawing
     // Camera capture continues for inference processing only
 #if 0  // Disabled: Video streaming to display (LVGL handles display)
+    TDL_DISP_FRAME_BUFF_T *target_fb = NULL;
+
+    if (NULL == sg_p_display_fb) {
+        return OPRT_COM_ERROR;
+    }
     // Use configured binary conversion method
     yuv422_to_binary_with_config(frame->data, frame->width, frame->height, sg_p_display_fb->frame, &sg_binary_config);
 

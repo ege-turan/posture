@@ -313,12 +313,13 @@ static void display_worker_task(void* args)
                 ui_add_notification_call();
                 break;
 
-            case NOTIFY_TYPE_MESSAGE:
+            case NOTIFY_TYPE_MESSAGE: {
                 PR_NOTICE("[DISPLAY] Message: %s", notify.message);
                 // Use ai_classify_text to determine priority from message content
                 ai_priority_t prio = ai_classify_text(notify.message);
                 ui_add_notification_from_text(notify.message, (int)prio);
                 break;
+            }
 
             case NOTIFY_TYPE_POSTURE_WARNING:
                 PR_NOTICE("[DISPLAY] Posture warning: %s", notify.message);

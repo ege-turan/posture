@@ -145,9 +145,7 @@ namespace {
 
     // Register RX callback AFTER start (either before or after is fine)
     // Use posture_ble_rx_callback to integrate with notification queue system
-    extern "C" {
-    #include "posture_detect.h"
-    }
+    // Forward declaration (posture_ble_rx_callback is defined in posture_detect.cpp)
     ble_peripheral_port_set_rx_callback(posture_ble_rx_callback);
 
     tal_system_sleep(2000);
@@ -176,78 +174,7 @@ namespace {
         PR_DEBUG("cnt is %d", cnt++);
         tal_system_sleep(500);
     }
-
-
-
-     // Initialize BLE communication
-     ret = ble_comm_init();
-     if (ret != OPRT_OK) {
-         PR_ERR("Failed to initialize BLE: %d", ret);
-         inference_deinit();
-         return;
-     }
-     PR_NOTICE("BLE communication initialized");
-
-     // Initialize queues and worker threads
-     ret = posture_detect_queue_init();
-     if (ret != OPRT_OK) {
-         PR_ERR("Failed to initialize queues: %d", ret);
-         ble_comm_deinit();
-         inference_deinit();
-         return;
-     }
-     PR_NOTICE("Queues initialized");
-
-     // Start worker threads (inference, display, BLE)
-     ret = posture_detect_threads_start();
-     if (ret != OPRT_OK) {
-         PR_ERR("Failed to start worker threads: %d", ret);
-         posture_detect_queue_deinit();
-         ble_comm_deinit();
-         inference_deinit();
-         return;
-     }
-     PR_NOTICE("Worker threads started");
-
-     // Initialize camera
-     ret = camera_init();
-     if (ret != OPRT_OK) {
-         PR_ERR("Failed to initialize camera: %d", ret);
-         posture_detect_queue_deinit();
-         ble_comm_deinit();
-         inference_deinit();
-         return;
-     }
-     PR_NOTICE("Camera system initialized");
-
-     // Start camera with frame callback (posts to queue)
-     ret = camera_start(posture_frame_callback, nullptr);
-     if (ret != OPRT_OK) {
-         PR_ERR("Failed to start camera: %d", ret);
-         posture_detect_queue_deinit();
-         camera_deinit();
-         ble_comm_deinit();
-         inference_deinit();
-         return;
-     }
-     PR_NOTICE("Camera started - frames will be queued for async processing");
-
-     // Main loop: Monitor status and log periodically
-     float neck_angle = 0.0f;
-     int posture_status = posture_get_status(&neck_angle);
-     
-     while (true) {
-        tal_system_sleep(5000);
-     }
-
-     // Cleanup (normally never reached in embedded systems)
-     camera_stop();
-     posture_detect_queue_deinit();
-     camera_deinit();
-     ble_comm_deinit();
-     inference_deinit();
-#endif  // End of disabled legacy code
- }
+}
 
  
 } // anonymous namespace ends here
