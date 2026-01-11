@@ -55,7 +55,7 @@ void display_demo_init(void)
     // If you keep it here, guard against double-init.
     // tal_log_init(...);
 
-    board_register_hardware();
+    //board_register_hardware();
 
     memset(&sg_display_info, 0, sizeof(sg_display_info));
 

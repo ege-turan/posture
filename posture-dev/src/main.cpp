@@ -19,6 +19,9 @@ extern "C" {
 #include "example_display.h"
 }
 
+extern "C" {
+#include "ui_lvgl.h"
+}
 
 
 namespace {
@@ -34,16 +37,18 @@ void user_main()
                  reinterpret_cast<TAL_LOG_OUTPUT_CB>(tkl_log_output));
     PR_DEBUG("hello world\r\n");
 
-    tal_system_sleep(3000);
+    tal_system_sleep(2000);
     PR_ERR("boot: starting display init");
 
 
-    display_demo_init();
+    //board_register_hardware();
+    //display_demo_init();
+    ui_lvgl_start();
 
     std::int32_t cnt = 0;
     while (true) {
 
-        display_demo_step();
+        //display_demo_step();
 
         PR_DEBUG("cnt is %d", cnt++);
         tal_system_sleep(1000);
