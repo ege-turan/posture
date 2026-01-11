@@ -7,50 +7,18 @@
  #include "tkl_output.h"
  #include "tal_cli.h"
  
- #include "camera.h"
- #include "inference.h"
- 
- #include <cstdint>
- 
- extern "C" {
-     void* __dso_handle = (void*) &__dso_handle;
- }
- 
- namespace {
- 
- // Global inference state
- static pose_result_t g_pose_result = {0};
- static bool g_inference_enabled = true;
- 
- /**
-  * @brief Camera frame callback - processes frame through MoveNet
-  */
- void on_camera_frame(uint8_t* yuv422_data, int width, int height, void* user_data)
- {
-     (void)user_data; 
- 
-     if (!g_inference_enabled) {
-         return; 
-     }
- 
-     OPERATE_RET ret = inference_process_frame(yuv422_data, width, height, &g_pose_result);
-     
-     if (ret == OPRT_OK) {
-         static int frame_count = 0;
-         if (++frame_count % 30 == 0) {
-             PR_DEBUG("Pose detected - Overall score: %.2f", g_pose_result.overall_score);
-             
-             if (g_pose_result.keypoints[0].score > 0.5f) { // Nose
-                 PR_DEBUG("  Nose: (%.1f, %.1f) score: %.2f",
-                         g_pose_result.keypoints[0].x,
-                         g_pose_result.keypoints[0].y,
-                         g_pose_result.keypoints[0].score);
-             }
-         }
-     } else {
-         PR_ERR("Inference failed: %d", ret);
-     }
- }
+#include "camera.h"
+#include "inference.h"
+#include "posture_detect.h"
+
+#include <cstdint>
+#include <cstring>
+
+extern "C" {
+    void* __dso_handle = (void*) &__dso_handle;
+}
+
+namespace {
  
  /**
   * @brief Main application logic
@@ -59,9 +27,12 @@
  {
      OPERATE_RET ret = OPRT_OK;
  
-     tal_log_init(TAL_LOG_LEVEL_DEBUG, 4096, 
+     ret = tal_log_init(TAL_LOG_LEVEL_DEBUG, 4096, 
                   reinterpret_cast<TAL_LOG_OUTPUT_CB>(tkl_log_output));
-     
+     if (ret != OPRT_OK) {
+         PR_ERR("Failed to initialize log: %d", ret);
+         return;
+     }
      PR_NOTICE("=== Posture Detection Application Starting ===");
  
      inference_config_t inf_config = {
@@ -84,7 +55,7 @@
      }
      PR_NOTICE("Camera system initialized");
  
-     ret = camera_start(on_camera_frame, nullptr);
+     ret = camera_start(posture_frame_callback, nullptr);
      if (ret != OPRT_OK) {
          PR_ERR("Failed to start camera: %d", ret);
          camera_deinit();
@@ -93,8 +64,17 @@
      }
      PR_NOTICE("Camera started - processing frames with MoveNet inference");
  
+     // float neck_angle = 0.0f;
+     // bool is_good = posture_get_status(&neck_angle);
+     
      while (true) {
-         tal_system_sleep(1000);
+        // Periodically check posture status
+        /*is_good = posture_get_status(&neck_angle);
+
+        PR_NOTICE("Posture: %s (Neck angle: %.1f deg)", 
+                is_good ? "GOOD" : "BAD", neck_angle);*/
+    
+        tal_system_sleep(1000);
      }
  
      camera_stop();
