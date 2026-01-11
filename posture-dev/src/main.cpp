@@ -23,6 +23,11 @@ extern "C" {
 #include "ui_lvgl.h"
 }
 
+extern "C" {
+#include "ai_classifier.h"
+}
+
+
 
 namespace {
 
@@ -40,6 +45,10 @@ void user_main()
     tal_system_sleep(2000);
     PR_ERR("boot: starting display init");
 
+    const char* msg1 = "Target: 50% OFF everything today only!!!";
+    const char* msg2 = "Calendar: Design Review moved from 3:00pm to 4:00pm on Wed.";
+    const char* msg3 = "Meeting moved up: Demo Prep now at 2:00pm (in 10 min)!!";
+
 
     //board_register_hardware();
     //display_demo_init();
@@ -49,6 +58,10 @@ void user_main()
     while (true) {
 
         //display_demo_step();
+
+        PR_DEBUG("AI p1=%d", (int)ai_classify_text(msg1));
+        PR_DEBUG("AI p2=%d", (int)ai_classify_text(msg2));
+        PR_DEBUG("AI p3=%d", (int)ai_classify_text(msg3));
 
         PR_DEBUG("cnt is %d", cnt++);
         tal_system_sleep(1000);

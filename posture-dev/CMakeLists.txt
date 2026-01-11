@@ -47,6 +47,8 @@ aux_source_directory(${APP_PATH}/src APP_SRC)
 set(APP_INC 
     ${APP_PATH}/include
     ${APP_PATH}/models
+    ${APP_PATH}/ai/inference # FOR AI MODEL IF WANT IT 
+    ${APP_PATH}/ai/generated # FOR AI MODEL IF WANT IT 
     ${TFLM_INC}
     ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/include
 )
@@ -71,6 +73,7 @@ target_sources(${EXAMPLE_LIB}
         ${APP_SRC}
         ${TFLM_SRC}    # Added TFLM source files
         ${TDL_DISPLAY_SRC}   # Added TDL display sources
+        ${APP_PATH}/ai/inference/ai_classifier.c # THIS IS FOR AI MODEL IF WANT IT !!!!
     )
 
 target_include_directories(${EXAMPLE_LIB}
