@@ -40,4 +40,29 @@ int posture_get_status(float* angle_out);
  */
 OPERATE_RET posture_get_pose(pose_result_t* pose_out);
 
+/**
+ * @brief Initialize queues and worker threads
+ * 
+ * Must be called before camera_start() to set up the queue-based architecture.
+ * 
+ * @return OPERATE_RET OPRT_OK on success, error code otherwise
+ */
+OPERATE_RET posture_detect_queue_init(void);
+
+/**
+ * @brief Start all worker threads (inference, display, BLE)
+ * 
+ * @return OPERATE_RET OPRT_OK on success, error code otherwise
+ */
+OPERATE_RET posture_detect_threads_start(void);
+
+/**
+ * @brief Deinitialize queues and stop worker threads
+ * 
+ * Should be called during cleanup to properly stop threads and free resources.
+ * 
+ * @return OPERATE_RET OPRT_OK on success
+ */
+OPERATE_RET posture_detect_queue_deinit(void);
+
 #endif // POSTURE_DETECT_H

@@ -10,6 +10,8 @@
 #include "camera.h"
 #include "inference.h"
 #include "posture_detect.h"
+#include "ble_comm.h"
+#include "display_popup.h"
 
 #include <cstdint>
 #include <cstring>
@@ -34,36 +36,75 @@ namespace {
          return;
      }
      PR_NOTICE("=== Posture Detection Application Starting ===");
- 
+     PR_NOTICE("Queue-based multi-threaded architecture");
+
+     // Initialize inference engine
      inference_config_t inf_config = {
          .enable_visualization = false,
          .min_confidence = 0.3f,
      };
- 
+
      ret = inference_init(&inf_config);
      if (ret != OPRT_OK) {
          PR_ERR("Failed to initialize inference: %d", ret);
          return;
      }
      PR_NOTICE("MoveNet inference initialized");
- 
+
+     // Initialize BLE communication
+     ret = ble_comm_init();
+     if (ret != OPRT_OK) {
+         PR_ERR("Failed to initialize BLE: %d", ret);
+         inference_deinit();
+         return;
+     }
+     PR_NOTICE("BLE communication initialized");
+
+     // Initialize queues and worker threads
+     ret = posture_detect_queue_init();
+     if (ret != OPRT_OK) {
+         PR_ERR("Failed to initialize queues: %d", ret);
+         ble_comm_deinit();
+         inference_deinit();
+         return;
+     }
+     PR_NOTICE("Queues initialized");
+
+     // Start worker threads (inference, display, BLE)
+     ret = posture_detect_threads_start();
+     if (ret != OPRT_OK) {
+         PR_ERR("Failed to start worker threads: %d", ret);
+         posture_detect_queue_deinit();
+         ble_comm_deinit();
+         inference_deinit();
+         return;
+     }
+     PR_NOTICE("Worker threads started");
+
+     // Initialize camera
      ret = camera_init();
      if (ret != OPRT_OK) {
          PR_ERR("Failed to initialize camera: %d", ret);
+         posture_detect_queue_deinit();
+         ble_comm_deinit();
          inference_deinit();
          return;
      }
      PR_NOTICE("Camera system initialized");
- 
+
+     // Start camera with frame callback (posts to queue)
      ret = camera_start(posture_frame_callback, nullptr);
      if (ret != OPRT_OK) {
          PR_ERR("Failed to start camera: %d", ret);
+         posture_detect_queue_deinit();
          camera_deinit();
+         ble_comm_deinit();
          inference_deinit();
          return;
      }
-     PR_NOTICE("Camera started - processing frames with MoveNet inference");
- 
+     PR_NOTICE("Camera started - frames will be queued for async processing");
+
+     // Main loop: Monitor status and log periodically
      float neck_angle = 0.0f;
      int posture_status = posture_get_status(&neck_angle);
      
@@ -75,11 +116,14 @@ namespace {
                                  (posture_status == 0) ? "BAD" : "UNDETECTED";
         PR_NOTICE("Posture: %s (Neck angle: %.1f deg)", status_str, neck_angle);
     
-        tal_system_sleep(1000);
+        tal_system_sleep(5000);  // Check every 5 seconds
      }
- 
+
+     // Cleanup (normally never reached in embedded systems)
      camera_stop();
+     posture_detect_queue_deinit();
      camera_deinit();
+     ble_comm_deinit();
      inference_deinit();
  }
  
