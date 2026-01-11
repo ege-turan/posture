@@ -10,8 +10,6 @@
 #include "camera.h"
 #include "inference.h"
 #include "posture_detect.h"
-#include "ble_comm.h"
-#include "display_popup.h"
 
 #include <cstdint>
 #include <cstring>
@@ -146,7 +144,11 @@ namespace {
     ble_peripheral_port_start();
 
     // Register RX callback AFTER start (either before or after is fine)
-    ble_peripheral_port_set_rx_callback(on_ble_rx);
+    // Use posture_ble_rx_callback to integrate with notification queue system
+    extern "C" {
+    #include "posture_detect.h"
+    }
+    ble_peripheral_port_set_rx_callback(posture_ble_rx_callback);
 
     tal_system_sleep(2000);
     PR_ERR("boot: starting display init");
@@ -244,6 +246,7 @@ namespace {
      camera_deinit();
      ble_comm_deinit();
      inference_deinit();
+#endif  // End of disabled legacy code
  }
 
  

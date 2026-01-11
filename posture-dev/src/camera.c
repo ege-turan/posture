@@ -181,6 +181,9 @@ static OPERATE_RET __get_camera_raw_frame_rgb565_cb(TDL_CAMERA_HANDLE_T hdl, TDL
         sg_frame_cb(frame->data, frame->width, frame->height, sg_user_data);
     }
 
+    // Video streaming to display is disabled to avoid interference with LVGL drawing
+    // Camera capture continues for inference processing only
+#if 0  // Disabled: Video streaming to display (LVGL handles display)
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
     TDL_DISP_FRAME_BUFF_T *target_fb = NULL;
     
@@ -239,6 +242,7 @@ static OPERATE_RET __get_camera_raw_frame_rgb565_cb(TDL_CAMERA_HANDLE_T hdl, TDL
 
     sg_p_display_fb = (sg_p_display_fb == sg_p_display_fb_1) ? sg_p_display_fb_2 : sg_p_display_fb_1;
 #endif
+#endif  // Video streaming disabled
 
     return rt;
 }
@@ -473,6 +477,9 @@ static OPERATE_RET __get_camera_raw_frame_mono_cb(TDL_CAMERA_HANDLE_T hdl, TDL_C
         sg_frame_cb(frame->data, frame->width, frame->height, sg_user_data);
     }
 
+    // Video streaming to display is disabled to avoid interference with LVGL drawing
+    // Camera capture continues for inference processing only
+#if 0  // Disabled: Video streaming to display (LVGL handles display)
     // Use configured binary conversion method
     yuv422_to_binary_with_config(frame->data, frame->width, frame->height, sg_p_display_fb->frame, &sg_binary_config);
 
@@ -484,6 +491,7 @@ static OPERATE_RET __get_camera_raw_frame_mono_cb(TDL_CAMERA_HANDLE_T hdl, TDL_C
     }
 
     tdl_disp_dev_flush(sg_tdl_disp_hdl, target_fb);
+#endif  // Video streaming disabled
 
     return OPRT_OK;
 }

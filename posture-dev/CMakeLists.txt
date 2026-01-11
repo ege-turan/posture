@@ -65,10 +65,12 @@ list(FILTER TFLM_SRC EXCLUDE REGEX ".*/test_helpers.*")
 list(FILTER TFLM_SRC EXCLUDE REGEX ".*/debug_log\\.cc$")  # Exclude reference implementation
 
 # Define TFLM specific includes
-# Note: third_party is at vendor/tflm/third_party, not inside tensorflow
+# Note: All TFLM files (headers and sources) should be in vendor/tflm
+# The structure is vendor/tflm/tensorflow/tensorflow/lite/micro/...
+# So include paths should allow "tensorflow/lite/micro/..." to resolve correctly
 set(TFLM_INC
-    "${TFLM_ROOT}"
-    "${TFLM_ROOT}/tensorflow"
+    "${TFLM_ROOT}/tensorflow"                  # For "tensorflow/lite/micro/..." includes
+    "${TFLM_ROOT}/tensorflow/tensorflow"       # Alternative path
     "${TFLM_ROOT}/third_party/flatbuffers/include"
     "${TFLM_ROOT}/third_party/gemmlowp"
     "${TFLM_ROOT}/third_party/kissfft"
@@ -125,6 +127,18 @@ set(APP_INC
     ${APP_PATH}/ai/generated # FOR AI MODEL IF WANT IT 
     ${TFLM_INC}
     ${CMAKE_SOURCE_DIR}/src/peripherals/display/tdl_display/include
+    
+    # LVGL include paths (should be automatically added via COMPONENT_PUBINC, but adding explicitly)
+    # LVGL v9 paths (check which version is enabled via CONFIG_LVGL_VERSION_9)
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v9
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v9/lvgl
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v9/port
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v9/conf
+    # LVGL v8 paths (if using v8 instead)
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v8
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v8/lvgl
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v8/port
+    ${CMAKE_SOURCE_DIR}/src/liblvgl/v8/conf
 )
 
 # --- DISPLAY (TDL) ADDITIONS START ---

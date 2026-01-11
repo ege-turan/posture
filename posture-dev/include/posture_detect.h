@@ -65,4 +65,15 @@ OPERATE_RET posture_detect_threads_start(void);
  */
 OPERATE_RET posture_detect_queue_deinit(void);
 
+/**
+ * @brief BLE RX callback for posting notifications to queue
+ * 
+ * Called from BLE stack context when data is received.
+ * Should be registered with ble_peripheral_port_set_rx_callback().
+ * 
+ * @param data BLE data packet
+ * @param len Data length
+ */
+extern "C" void posture_ble_rx_callback(const uint8_t* data, uint16_t len);
+
 #endif // POSTURE_DETECT_H

@@ -15,8 +15,12 @@
 #include "inference.h"
 #include "camera.h"
 #include "queue_types.h"
-#include "display_popup.h"
-#include "ble_comm.h"
+
+extern "C" {
+#include "ui_lvgl.h"
+#include "ai_classifier.h"
+#include "lv_vendor.h"  // For lv_vendor_disp_lock/unlock
+}
 
 #include "tal_api.h"
 #include "tal_queue.h"
@@ -235,6 +239,9 @@ static void inference_worker_task(void* args)
             g_neck_angle = neck_angle;
             g_posture_status = posture_status;
             
+            // Update UI posture state (0=BAD, 1=GOOD, 2=UNDETECTED)
+            ui_set_posture_state(posture_status);
+            
             // Print only keypoints 0, 5, 6
             PR_NOTICE("=== MoveNet Keypoints (0, 5, 6) ===");
             PR_NOTICE("Overall score: %.3f", pose.overall_score);
@@ -296,47 +303,46 @@ static void display_worker_task(void* args)
             continue;
         }
 
-        // Show popup based on notification type
+        // Show notification in LVGL UI based on notification type
+        // Lock display before UI updates
+        lv_vendor_disp_lock();
+        
         switch (notify.type) {
             case NOTIFY_TYPE_PHONE_CALL:
                 PR_NOTICE("[DISPLAY] Phone call: %s", notify.message);
-                display_popup_show(notify.message, 
-                    notify.duration_ms > 0 ? notify.duration_ms : 10000, 
-                    notify.priority);
+                ui_add_notification_call();
                 break;
 
             case NOTIFY_TYPE_MESSAGE:
                 PR_NOTICE("[DISPLAY] Message: %s", notify.message);
-                display_popup_show(notify.message, 
-                    notify.duration_ms > 0 ? notify.duration_ms : 5000, 
-                    notify.priority);
+                // Use ai_classify_text to determine priority from message content
+                ai_priority_t prio = ai_classify_text(notify.message);
+                ui_add_notification_from_text(notify.message, (int)prio);
                 break;
 
             case NOTIFY_TYPE_POSTURE_WARNING:
                 PR_NOTICE("[DISPLAY] Posture warning: %s", notify.message);
-                display_popup_show(notify.message, 
-                    notify.duration_ms > 0 ? notify.duration_ms : 5000, 
-                    notify.priority);
+                // Posture warnings shown as text notifications with high priority
+                ui_add_notification_from_text(notify.message, (int)AI_PRIORITY_HIGH);
                 break;
 
             case NOTIFY_TYPE_POSTURE_GOOD:
                 PR_NOTICE("[DISPLAY] Posture improved: %s", notify.message);
-                display_popup_show(notify.message, 
-                    notify.duration_ms > 0 ? notify.duration_ms : 3000, 
-                    notify.priority);
+                // Good posture notifications shown as text with low priority
+                ui_add_notification_from_text(notify.message, (int)AI_PRIORITY_LOW);
                 break;
 
             case NOTIFY_TYPE_SYSTEM_INFO:
                 PR_NOTICE("[DISPLAY] System info: %s", notify.message);
-                display_popup_show(notify.message, 
-                    notify.duration_ms > 0 ? notify.duration_ms : 3000, 
-                    notify.priority);
+                ui_add_notification_from_text(notify.message, (int)AI_PRIORITY_LOW);
                 break;
 
             default:
                 PR_WARN("[DISPLAY] Unknown notification type: %d", notify.type);
                 break;
         }
+        
+        lv_vendor_disp_unlock();
     }
 
     PR_NOTICE("Display worker thread stopped");
@@ -346,39 +352,40 @@ static void display_worker_task(void* args)
  *                BLE Worker Thread
  * ========================================================= */
 /**
- * @brief BLE notification callback (called from BLE thread context)
+ * @brief BLE RX callback (called from BLE stack context when data received)
+ * 
+ * This is called from the BLE event callback in ble_peripheral_port.c
+ * when TAL_BLE_EVT_WRITE_REQ is received. Posts notifications to the queue.
  */
-static void ble_notification_callback(const char* notification_type, const char* message, void* user_data)
+extern "C" void posture_ble_rx_callback(const uint8_t* data, uint16_t len)
 {
-    (void)user_data;
-
-    if (g_notify_queue == NULL || notification_type == NULL || message == NULL) {
+    if (g_notify_queue == NULL || data == NULL || len == 0) {
         return;
     }
 
-    notification_queue_item_t notify = {};
-    
-    // Map notification type to queue item type
-    if (strcmp(notification_type, "phone_call") == 0) {
-        notify.type = NOTIFY_TYPE_PHONE_CALL;
-    } else if (strcmp(notification_type, "message") == 0) {
-        notify.type = NOTIFY_TYPE_MESSAGE;
-    } else {
-        notify.type = NOTIFY_TYPE_SYSTEM_INFO;
-    }
+    // Convert BLE data to null-terminated string
+    char message[128] = {0};
+    size_t msg_len = (len < sizeof(message) - 1) ? len : sizeof(message) - 1;
+    memcpy(message, data, msg_len);
+    message[msg_len] = '\0';
 
+    notification_queue_item_t notify = {};
+    notify.type = NOTIFY_TYPE_MESSAGE;  // Treat all BLE packets as text messages
     strncpy(notify.message, message, sizeof(notify.message) - 1);
     notify.message[sizeof(notify.message) - 1] = '\0';
     notify.duration_ms = 0;  // Use default
     notify.priority = 2;  // Medium priority
 
+    // Post to notification queue (non-blocking)
     tal_queue_post(g_notify_queue, &notify, 0);
 }
 
 /**
  * @brief BLE worker thread task
  * 
- * Monitors BLE for phone notifications and posts them to the notification queue.
+ * This thread is kept for compatibility but BLE processing is now handled
+ * via direct callback from ble_peripheral_port.c through posture_ble_rx_callback.
+ * The BLE stack handles events in its own context.
  */
 static void ble_worker_task(void* args)
 {
@@ -386,25 +393,13 @@ static void ble_worker_task(void* args)
     
     PR_NOTICE("BLE worker thread started");
 
-    // Register callback for BLE notifications
-    ble_comm_register_callback(ble_notification_callback, NULL);
-
-    // Start BLE communication
-    OPERATE_RET ret = ble_comm_start();
-    if (ret != OPRT_OK) {
-        PR_ERR("Failed to start BLE communication: %d", ret);
-        g_ble_worker_running = false;
-        return;
-    }
-
-    // BLE worker runs continuously, processing notifications via callback
+    // BLE is already initialized in main.cpp via ble_peripheral_port_start()
+    // The callback posture_ble_rx_callback is registered separately
+    // This thread just needs to stay alive for compatibility
     while (g_ble_worker_running) {
-        // BLE notifications are handled asynchronously via callback
-        // This thread just needs to stay alive
         tal_system_sleep(1000);
     }
 
-    ble_comm_stop();
     PR_NOTICE("BLE worker thread stopped");
 }
 

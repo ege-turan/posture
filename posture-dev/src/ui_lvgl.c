@@ -116,9 +116,15 @@ void ui_set_posture_state(int state)
 {
     if (!g_posture_bar) return;
 
-    posture_state_t s = POSTURE_UNKNOWN;
-    if (state == 1) s = POSTURE_GOOD;
-    else if (state == 2) s = POSTURE_BAD;
+    // Map: 0=BAD, 1=GOOD, 2=UNDETECTED
+    posture_state_t s = POSTURE_UNKNOWN;  // Default to unknown (UNDETECTED)
+    if (state == 0) {
+        s = POSTURE_BAD;      // 0 = BAD
+    } else if (state == 1) {
+        s = POSTURE_GOOD;     // 1 = GOOD
+    } else {
+        s = POSTURE_UNKNOWN;  // 2 = UNDETECTED (or any other value)
+    }
 
     lv_vendor_disp_lock();
     lv_obj_set_style_bg_color(g_posture_bar, posture_to_color(s), 0);

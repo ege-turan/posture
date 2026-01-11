@@ -13,7 +13,7 @@ void ui_add_notification_email(void);
 
 void ui_add_notification_from_text(const char *msg, int prio);
 
-void ui_set_posture_state(int state);  // 0=unknown,1=good,2=bad
+void ui_set_posture_state(int state);  // 0=BAD, 1=GOOD, 2=UNDETECTED
 
 
 #ifdef __cplusplus
