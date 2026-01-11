@@ -6,6 +6,9 @@
 
 #include <string.h>
 
+#include "ancs_client.h"
+
+
 /**
  * @brief BLE central event callback
  */
@@ -13,6 +16,9 @@ static void __ble_central_event_callback(TAL_BLE_EVT_PARAMS_T *p_event)
 {
     PR_DEBUG("----------ble_central event callback-------");
     PR_DEBUG("ble_central event is : %d", p_event->type);
+
+    ancs_client_on_ble_event(p_event);
+
 
     switch (p_event->type) {
     case TAL_BLE_EVT_ADV_REPORT: {
@@ -93,6 +99,9 @@ void ble_central_start(void)
         PR_ERR("tal_ble_bt_init failed: %d", rt);
         return;
     }
+
+    ancs_client_init();
+
 
     // Start scanning
     scan_cfg.type = TAL_BLE_SCAN_TYPE_ACTIVE;
