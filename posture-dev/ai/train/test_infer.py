@@ -100,6 +100,12 @@ if __name__ == "__main__":
         "Meeting moved up: Demo Prep now at 2:00pm (in 10 min)!!",
         "can u hop on a call asap??",
         "FYI I sent the files over. No rush.",
+        "Call me when you see this, urgent",
+        "No rush — can we talk sometime this afternoon?",
+        "yo u free later?",
+        "pls send the doc when u get a sec",
+        "lol ok",
+        "Newsletter: Top picks for you this week."
     ]
 
     for t in tests:
