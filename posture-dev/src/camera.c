@@ -18,6 +18,8 @@
 #include "tdl_display_manage.h"
 #include "tdl_display_draw.h"
 #include "tdl_camera_manage.h"
+#include "tkl_memory.h"
+#include <string.h>
 
 // Board-specific configuration (define these in your board config or here)
 #ifndef CAMERA_NAME
@@ -91,10 +93,48 @@ static BINARY_CONFIG_T sg_binary_config = {
 static TKL_DMA2D_FRAME_INFO_T sg_in_frame = {0};
 static TKL_DMA2D_FRAME_INFO_T sg_out_frame = {0};
 static SEM_HANDLE sg_convert_sem;
+static uint8_t* sg_rotated_yuv422_buffer = NULL;  // Buffer for rotated YUV422 (for display)
+static size_t sg_rotated_yuv422_size = 0;
 #endif
 /***********************************************************
 ***********************function define**********************
 ***********************************************************/
+/**
+ * @brief Rotate YUV422 image 90° clockwise
+ * 
+ * Rotates a YUV422 (UYVY format) image 90° clockwise.
+ * Input: width x height -> Output: height x width
+ * 
+ * @param input_data Input YUV422 data (UYVY format)
+ * @param input_width Input image width
+ * @param input_height Input image height
+ * @param output_data Output YUV422 data (must be pre-allocated: height * width * 2 bytes)
+ */
+static void rotate_yuv422_90cw(uint8_t* input_data, int input_width, int input_height, uint8_t* output_data)
+{
+    // For 90° clockwise rotation:
+    // Original pixel at (x, y) -> New position at (input_height-1-y, x)
+    // Output dimensions: input_height x input_width
+    
+    for (int y = 0; y < input_height; y++) {
+        for (int x = 0; x < input_width; x++) {
+            // Source position in original image
+            int src_index = (y * input_width + x) * 2;
+            
+            // Destination position (90° clockwise)
+            // Original (x, y) -> New (input_height-1-y, x)
+            int dst_x = input_height - 1 - y;
+            int dst_y = x;
+            int dst_index = (dst_y * input_height + dst_x) * 2;
+            
+            // Copy UYVY pixel (2 bytes per pixel in UYVY format)
+            // Note: UYVY has [U0,Y0,V0,Y1] for 2 pixels, we treat each pixel independently
+            output_data[dst_index + 0] = input_data[src_index + 0];  // U
+            output_data[dst_index + 1] = input_data[src_index + 1];  // Y
+        }
+    }
+}
+
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
 static void __dma2d_irq_cb(TUYA_DMA2D_IRQ_E type, VOID_T *args)
 {
@@ -143,15 +183,34 @@ static OPERATE_RET __get_camera_raw_frame_rgb565_cb(TDL_CAMERA_HANDLE_T hdl, TDL
 
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
     TDL_DISP_FRAME_BUFF_T *target_fb = NULL;
+    
+    // Allocate buffer for rotated YUV422 if needed (after rotation: width x height -> height x width)
+    size_t rotated_size = frame->height * frame->width * 2;
+    if (sg_rotated_yuv422_buffer == NULL || sg_rotated_yuv422_size < rotated_size) {
+        if (sg_rotated_yuv422_buffer != NULL) {
+            tkl_system_psram_free(sg_rotated_yuv422_buffer);
+        }
+        sg_rotated_yuv422_size = rotated_size;
+        sg_rotated_yuv422_buffer = (uint8_t*)tkl_system_psram_malloc(sg_rotated_yuv422_size);
+        if (sg_rotated_yuv422_buffer == NULL) {
+            PR_ERR("Failed to allocate rotated YUV422 buffer for display");
+            return OPRT_MALLOC_FAILED;
+        }
+    }
+    
+    // Rotate YUV422 90° clockwise (width x height -> height x width)
+    rotate_yuv422_90cw(frame->data, frame->width, frame->height, sg_rotated_yuv422_buffer);
+    int rotated_width = frame->height;   // After 90° CW: width becomes height
+    int rotated_height = frame->width;   // After 90° CW: height becomes width
 
     sg_in_frame.type = TUYA_FRAME_FMT_YUV422;
-    sg_in_frame.width = frame->width;
-    sg_in_frame.height = frame->height;
+    sg_in_frame.width = rotated_width;
+    sg_in_frame.height = rotated_height;
     sg_in_frame.axis.x_axis = 0;
     sg_in_frame.axis.y_axis = 0;
     sg_in_frame.width_cp = 0;
     sg_in_frame.height_cp = 0;
-    sg_in_frame.pbuf = frame->data;
+    sg_in_frame.pbuf = sg_rotated_yuv422_buffer;
 
     sg_out_frame.type = TUYA_FRAME_FMT_RGB565;
     sg_out_frame.width = sg_p_display_fb->width;
@@ -663,6 +722,12 @@ OPERATE_RET camera_deinit(void)
     if (sg_convert_sem != NULL) {
         tal_semaphore_release(sg_convert_sem);
         sg_convert_sem = NULL;
+    }
+    
+    if (sg_rotated_yuv422_buffer != NULL) {
+        tkl_system_psram_free(sg_rotated_yuv422_buffer);
+        sg_rotated_yuv422_buffer = NULL;
+        sg_rotated_yuv422_size = 0;
     }
 #endif
 

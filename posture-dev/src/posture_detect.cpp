@@ -23,7 +23,7 @@
  *                Constants & configuration
  * ========================================================= */
 #define MOVENET_KP_NUM 17
-#define SCORE_THRESH  0.3f
+#define SCORE_THRESH  0.2f
 #define GOOD_NECK_ANGLE_DEG 15.0f
 
 /* =========================================================
