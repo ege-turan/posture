@@ -6,6 +6,12 @@ extern "C" {
 
 void ui_lvgl_start(void);
 
+/* External trigger API (BLE will call this later) */
+void ui_add_notification_call(void);
+void ui_add_notification_text(void);
+void ui_add_notification_email(void);
+
 #ifdef __cplusplus
 }
 #endif
+
