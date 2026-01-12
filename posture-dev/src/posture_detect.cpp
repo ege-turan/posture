@@ -417,9 +417,9 @@ OPERATE_RET posture_detect_queue_init(void)
 {
     OPERATE_RET ret = OPRT_OK;
 
-    // Create frame queue (buffer up to 5 frames)
+    // Create frame queue (buffer up to 3 frames)
     // Each item is a pointer to frame_queue_item_t
-    ret = tal_queue_create_init(&g_frame_queue, sizeof(frame_queue_item_t*), 5);
+    ret = tal_queue_create_init(&g_frame_queue, sizeof(frame_queue_item_t*), 3);
     if (ret != OPRT_OK) {
         PR_ERR("Failed to create frame queue: %d", ret);
         return ret;

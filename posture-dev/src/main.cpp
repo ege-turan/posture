@@ -149,9 +149,41 @@ namespace {
     ble_peripheral_port_set_rx_callback(posture_ble_rx_callback);
 
     tal_system_sleep(2000);
-    PR_ERR("boot: starting display init");
+    PR_NOTICE("boot: starting display init");
 
     ui_lvgl_start();
+
+    // Initialize posture detection queue system
+    ret = posture_detect_queue_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("Failed to initialize posture detection queues: %d", ret);
+        return;
+    }
+    PR_NOTICE("Posture detection queues initialized");
+
+    // Start worker threads (inference, display, BLE)
+    ret = posture_detect_threads_start();
+    if (ret != OPRT_OK) {
+        PR_ERR("Failed to start posture detection threads: %d", ret);
+        return;
+    }
+    PR_NOTICE("Posture detection threads started");
+
+    // Initialize camera
+    ret = camera_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("Failed to initialize camera: %d", ret);
+        return;
+    }
+    PR_NOTICE("Camera initialized");
+
+    // Start camera with posture detection callback
+    ret = camera_start(posture_frame_callback, nullptr);
+    if (ret != OPRT_OK) {
+        PR_ERR("Failed to start camera: %d", ret);
+        return;
+    }
+    PR_NOTICE("Camera started - capturing frames");
 
     char ble_msg[256];
 
