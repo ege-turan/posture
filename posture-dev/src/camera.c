@@ -72,7 +72,7 @@ typedef struct {
 ***********************************************************/
 static TDL_DISP_HANDLE_T sg_tdl_disp_hdl = NULL;
 static TDL_DISP_DEV_INFO_T sg_display_info;
-static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb = NULL;
+// static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb = NULL;
 static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb_1 = NULL;
 static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb_2 = NULL;
 static TDL_DISP_FRAME_BUFF_T *sg_p_display_fb_rotat = NULL;
@@ -176,7 +176,7 @@ static OPERATE_RET __get_camera_raw_frame_rgb565_cb(TDL_CAMERA_HANDLE_T hdl, TDL
 {
     OPERATE_RET rt = OPRT_OK;
 
-    if (NULL == sg_p_display_fb || NULL == frame) {
+    if (NULL == frame) {
         return OPRT_COM_ERROR;
     }
 
@@ -546,6 +546,7 @@ OPERATE_RET get_binary_config(BINARY_CONFIG_T *config)
     return OPRT_OK;
 }
 
+#if 0  // DISABLED: Display initialization handled by LVGL to avoid hardware conflicts
 static OPERATE_RET __display_init(void)
 {
     OPERATE_RET rt = OPRT_OK;
@@ -609,6 +610,7 @@ static OPERATE_RET __display_init(void)
 
     return OPRT_OK;
 }
+#endif  // DISABLED: Display initialization
 
 static OPERATE_RET __camera_init_internal(void)
 {
@@ -649,14 +651,27 @@ OPERATE_RET camera_init(void)
 {
     OPERATE_RET rt = OPRT_OK;
 
-    /* hardware register */
-    board_register_hardware();
+    /* hardware register - REMOVED: Already called in ui_lvgl_start() to avoid conflicts */
+    // board_register_hardware();
 
 #if defined(ENABLE_DMA2D) && (ENABLE_DMA2D == 1)
     TUYA_CALL_ERR_RETURN(__dma2d_init());
 #endif
 
-    TUYA_CALL_ERR_RETURN(__display_init());
+    /* Display initialization - REMOVED: LVGL handles display to avoid hardware conflicts */
+    // TUYA_CALL_ERR_RETURN(__display_init());
+    
+    /* Get display info only (don't open device - LVGL handles that) */
+    memset(&sg_display_info, 0, sizeof(TDL_DISP_DEV_INFO_T));
+    sg_tdl_disp_hdl = tdl_disp_find_dev(DISPLAY_NAME);
+    if (sg_tdl_disp_hdl != NULL) {
+        tdl_disp_dev_get_info(sg_tdl_disp_hdl, &sg_display_info);
+        // Don't call tdl_disp_dev_open() - LVGL already opened it
+    } else {
+        PR_ERR("display dev %s not found", DISPLAY_NAME);
+        // Default to RGB565 if display not found
+        sg_display_info.fmt = TUYA_PIXEL_FMT_RGB565;
+    }
 
     // Configure binary conversion method for monochrome displays
     if (sg_display_info.fmt == TUYA_PIXEL_FMT_MONOCHROME) {
@@ -665,7 +680,7 @@ OPERATE_RET camera_init(void)
         PR_NOTICE("Binary conversion initialized for monochrome display");
     }
 
-    PR_NOTICE("Camera module initialized");
+    PR_NOTICE("Camera module initialized (display handled by LVGL)");
     return OPRT_OK;
 }
 

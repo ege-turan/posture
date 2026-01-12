@@ -464,7 +464,7 @@ OPERATE_RET posture_detect_threads_start(void)
     // Start display worker thread
     g_display_worker_running = true;
     thread_cfg.stackDepth = 4096;
-    thread_cfg.priority = THREAD_PRIO_3;
+    thread_cfg.priority = THREAD_PRIO_2;  // Increased from THREAD_PRIO_3 for responsive UI updates
     thread_cfg.thrdname = const_cast<char*>("display_worker");
     ret = tal_thread_create_and_start(&g_display_worker_thread, NULL, NULL, 
                                      display_worker_task, NULL, &thread_cfg);

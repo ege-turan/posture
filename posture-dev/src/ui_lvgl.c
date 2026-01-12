@@ -147,7 +147,9 @@ static void collapse_anim_cb(void * var, int32_t v)
     lv_obj_set_height(ctx->card, (lv_coord_t)v);
 
     lv_opa_t opa = (ctx->start_h > 0) ? (lv_opa_t)((v * 255) / ctx->start_h) : 0;
-    lv_obj_set_style_opa(ctx->card, opa, 0);
+    lv_obj_set_style_bg_opa(ctx->card, opa, 0);
+    lv_obj_set_style_border_opa(ctx->card, opa, 0);
+    lv_obj_set_style_text_opa(ctx->card, opa, LV_PART_MAIN);
 }
 
 static void collapse_anim_ready_cb(lv_anim_t * a)
@@ -490,5 +492,5 @@ void ui_lvgl_start(void)
     ui_create_bottom_buttons();
     lv_vendor_disp_unlock();
 
-    lv_vendor_start(5, 1024 * 8);
+    lv_vendor_start(1, 1024 * 8);  // Increased priority from 5 to 1 for responsive touch events
 }

@@ -203,8 +203,7 @@ namespace {
             ui_add_notification_from_text(ble_msg, prio);
         }
 
-        PR_DEBUG("cnt is %d", cnt++);
-        tal_system_sleep(500);
+        tal_system_sleep(5000);
     }
 }
 
